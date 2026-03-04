@@ -9,7 +9,7 @@ All notable changes to the OpenClaw Assistant Home Assistant Add-on will be docu
 - Source-mode runtime that clones and builds OpenClaw from a configured Git repository into persistent storage.
 
 ### Changed
-- Fork defaults now target `https://github.com/Welizard-bot/openclaw.git` on branch `main`.
+- Fork defaults now target `https://github.com/WeLizard/openclaw.git` on branch `main`.
 - Source-mode installs now run `pnpm install`, `pnpm build`, `pnpm ui:build`, and `openclaw doctor --non-interactive` before startup.
 - Source-mode checkouts sync built-in skills from the checked-out repository into persistent storage.
 

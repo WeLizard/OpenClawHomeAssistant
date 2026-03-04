@@ -58,8 +58,8 @@ When you open the add-on page in Home Assistant, nginx serves a landing page wit
 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on store**
 2. Click ⋮ (top-right) → **Repositories** → paste one of:
-   - **Stable**: `https://github.com/techartdev/OpenClawHomeAssistant`
-   - **Dev/Experimental**: `https://github.com/techartdev/OpenClawHomeAssistant-dev`
+   - **Stable**: `https://github.com/WeLizard/OpenClawHomeAssistant`
+   - **Upstream**: `https://github.com/techartdev/OpenClawHomeAssistant`
 3. Find and install **OpenClaw Assistant**
 4. Click **Start**
 
@@ -266,7 +266,7 @@ All options are set via **Settings → Apps/Add-ons → OpenClaw Assistant → C
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `install_mode` | `package` / `source` | `source` | `package`: use the OpenClaw version bundled in the add-on image. `source`: clone/build the configured repository into persistent storage on startup |
-| `openclaw_repo_url` | string | `https://github.com/Welizard-bot/openclaw.git` | Git repository used in `source` mode |
+| `openclaw_repo_url` | string | `https://github.com/WeLizard/openclaw.git` | Git repository used in `source` mode |
 | `openclaw_branch` | string | `main` | Branch or ref checked out in `source` mode |
 | `openclaw_github_token` | string | _(empty)_ | Optional GitHub token for private repositories in `source` mode |
 

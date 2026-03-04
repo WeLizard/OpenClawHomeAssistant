@@ -12,7 +12,7 @@ configuration:
 
   openclaw_repo_url:
     name: URL do repositório OpenClaw
-    description: Repositório Git clonado quando o modo é Source (exemplo - https://github.com/Welizard-bot/openclaw.git)
+    description: Repositório Git clonado quando o modo é Source (exemplo - https://github.com/WeLizard/openclaw.git)
 
   openclaw_branch:
     name: Branch do OpenClaw

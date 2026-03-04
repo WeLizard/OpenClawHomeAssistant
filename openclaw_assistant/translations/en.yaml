@@ -12,7 +12,7 @@ configuration:
 
   openclaw_repo_url:
     name: OpenClaw Repository URL
-    description: Git repository to clone when Install Mode is Source (example - https://github.com/Welizard-bot/openclaw.git)
+    description: Git repository to clone when Install Mode is Source (example - https://github.com/WeLizard/openclaw.git)
 
   openclaw_branch:
     name: OpenClaw Branch

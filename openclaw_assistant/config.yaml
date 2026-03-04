@@ -1,8 +1,8 @@
-name: OpenClaw Assistant (Welizard Fork)
+name: OpenClaw Assistant (WeLizard Fork)
 version: "0.5.56-welizard.1"
 slug: openclaw_assistant
-description: Run the Welizard OpenClaw fork as a Home Assistant add-on.
-url: https://github.com/Welizard-bot/OpenClawHomeAssistant
+description: Run the WeLizard OpenClaw fork as a Home Assistant add-on.
+url: https://github.com/WeLizard/OpenClawHomeAssistant
 arch:
   - amd64
   - aarch64
@@ -29,11 +29,11 @@ options:
 
   # Runtime installation mode:
   # package: use the OpenClaw version baked into the add-on image
-  # source: clone/build Welizard-bot/openclaw into persistent storage on startup
+  # source: clone/build WeLizard/openclaw into persistent storage on startup
   install_mode: source
 
   # Source mode repository settings
-  openclaw_repo_url: "https://github.com/Welizard-bot/openclaw.git"
+  openclaw_repo_url: "https://github.com/WeLizard/openclaw.git"
   openclaw_branch: "main"
   openclaw_github_token: ""
 
@@ -171,4 +171,3 @@ schema:
     - name: "match(^[A-Z_][A-Z0-9_]*$)"
       value: str
   nginx_log_level: list(full|minimal)?
-

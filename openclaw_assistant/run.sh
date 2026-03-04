@@ -19,7 +19,7 @@ fi
 
 TZNAME=$(jq -r '.timezone // "Europe/Sofia"' "$OPTIONS_FILE")
 INSTALL_MODE=$(jq -r '.install_mode // "source"' "$OPTIONS_FILE")
-OPENCLAW_REPO_URL=$(jq -r '.openclaw_repo_url // "https://github.com/Welizard-bot/openclaw.git"' "$OPTIONS_FILE")
+OPENCLAW_REPO_URL=$(jq -r '.openclaw_repo_url // "https://github.com/WeLizard/openclaw.git"' "$OPTIONS_FILE")
 OPENCLAW_BRANCH=$(jq -r '.openclaw_branch // "main"' "$OPTIONS_FILE")
 OPENCLAW_GITHUB_TOKEN=$(jq -r '.openclaw_github_token // empty' "$OPTIONS_FILE")
 GW_PUBLIC_URL=$(jq -r '.gateway_public_url // empty' "$OPTIONS_FILE")
