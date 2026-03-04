@@ -18,6 +18,10 @@ fi
 # ------------------------------------------------------------------------------
 
 TZNAME=$(jq -r '.timezone // "Europe/Sofia"' "$OPTIONS_FILE")
+INSTALL_MODE=$(jq -r '.install_mode // "source"' "$OPTIONS_FILE")
+OPENCLAW_REPO_URL=$(jq -r '.openclaw_repo_url // "https://github.com/Welizard-bot/openclaw.git"' "$OPTIONS_FILE")
+OPENCLAW_BRANCH=$(jq -r '.openclaw_branch // "main"' "$OPTIONS_FILE")
+OPENCLAW_GITHUB_TOKEN=$(jq -r '.openclaw_github_token // empty' "$OPTIONS_FILE")
 GW_PUBLIC_URL=$(jq -r '.gateway_public_url // empty' "$OPTIONS_FILE")
 HA_TOKEN=$(jq -r '.homeassistant_token // empty' "$OPTIONS_FILE")
 ADDON_HTTP_PROXY=$(jq -r '.http_proxy // empty' "$OPTIONS_FILE")
@@ -102,6 +106,15 @@ case "$ACCESS_MODE" in
     ;;
 esac
 
+case "$INSTALL_MODE" in
+  package|source)
+    ;;
+  *)
+    echo "WARN: Invalid install_mode '$INSTALL_MODE'. Falling back to source."
+    INSTALL_MODE="source"
+    ;;
+esac
+
 # Reduce risk of secrets ending up in logs
 set +x
 
@@ -144,8 +157,10 @@ export HOME=/config
 export OPENCLAW_CONFIG_DIR=/config/.openclaw
 export OPENCLAW_WORKSPACE_DIR=/config/clawd
 export XDG_CONFIG_HOME=/config
+LOCAL_BIN_DIR="/config/bin"
+OPENCLAW_SOURCE_DIR="/config/openclaw-src"
 
-mkdir -p /config/.openclaw /config/.openclaw/identity /config/clawd /config/keys /config/secrets
+mkdir -p /config/.openclaw /config/.openclaw/identity /config/clawd /config/keys /config/secrets "$LOCAL_BIN_DIR"
 
 # ------------------------------------------------------------------------------
 # Sync built-in OpenClaw skills from image to persistent storage
@@ -186,7 +201,7 @@ fi
 PERSISTENT_NODE_GLOBAL="/config/.node_global"
 mkdir -p "$PERSISTENT_NODE_GLOBAL"
 npm config set prefix "$PERSISTENT_NODE_GLOBAL" 2>/dev/null || true
-export PATH="${PERSISTENT_NODE_GLOBAL}/bin:${PATH}"
+export PATH="${LOCAL_BIN_DIR}:${PERSISTENT_NODE_GLOBAL}/bin:${PATH}"
 export NODE_PATH="${PERSISTENT_NODE_GLOBAL}/lib/node_modules:${NODE_PATH:-}"
 
 # Also configure pnpm global dir to persistent storage
@@ -449,6 +464,117 @@ EOF
 
 
 # ------------------------------------------------------------------------------
+# Optional source mode for OpenClaw runtime
+# In source mode we clone/build the configured repository into persistent storage
+# and expose it via a local wrapper placed ahead of the packaged CLI in PATH.
+# ------------------------------------------------------------------------------
+ensure_openclaw_wrapper() {
+  cat > "${LOCAL_BIN_DIR}/openclaw" <<EOF_WRAPPER
+#!/usr/bin/env bash
+set -euo pipefail
+exec node "${OPENCLAW_SOURCE_DIR}/openclaw.mjs" "\$@"
+EOF_WRAPPER
+  chmod +x "${LOCAL_BIN_DIR}/openclaw"
+}
+
+remove_openclaw_wrapper() {
+  rm -f "${LOCAL_BIN_DIR}/openclaw"
+}
+
+require_openclaw_source_repo() {
+  local pkg_name
+  if [ ! -f "${OPENCLAW_SOURCE_DIR}/package.json" ]; then
+    echo "ERROR: package.json missing in ${OPENCLAW_SOURCE_DIR}"
+    return 1
+  fi
+  pkg_name="$(node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('${OPENCLAW_SOURCE_DIR}/package.json','utf8'));process.stdout.write(data.name||'');")"
+  if [ "${pkg_name}" != "openclaw" ]; then
+    echo "ERROR: Unsupported repository package '${pkg_name}' in ${OPENCLAW_SOURCE_DIR}"
+    return 1
+  fi
+  if [ ! -f "${OPENCLAW_SOURCE_DIR}/openclaw.mjs" ]; then
+    echo "ERROR: openclaw.mjs missing in ${OPENCLAW_SOURCE_DIR}"
+    return 1
+  fi
+}
+
+sync_source_skills() {
+  local source_skills_dir="${OPENCLAW_SOURCE_DIR}/skills"
+  if [ ! -d "${source_skills_dir}" ]; then
+    return 0
+  fi
+  mkdir -p "${PERSISTENT_SKILLS_DIR}"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --update "${source_skills_dir}/" "${PERSISTENT_SKILLS_DIR}/" 2>/dev/null || true
+  else
+    cp -ru "${source_skills_dir}/"* "${PERSISTENT_SKILLS_DIR}/" 2>/dev/null || true
+  fi
+  echo "INFO: Synced source-mode skills from ${source_skills_dir}"
+}
+
+configure_openclaw_source_mode() {
+  local effective_repo_url="${OPENCLAW_REPO_URL}"
+  local target_branch="${OPENCLAW_BRANCH:-main}"
+  local current_head=""
+  local target_head=""
+  local build_marker="/config/.openclaw/source-build-head"
+  local last_built_head=""
+  local needs_build="true"
+
+  if [ -z "${effective_repo_url}" ] || [ "${effective_repo_url}" = "null" ]; then
+    echo "ERROR: openclaw_repo_url is empty while install_mode=source"
+    return 1
+  fi
+
+  if [ -n "${OPENCLAW_GITHUB_TOKEN}" ] && [ "${OPENCLAW_GITHUB_TOKEN}" != "null" ] && [[ "${effective_repo_url}" == https://github.com/* ]]; then
+    effective_repo_url="https://${OPENCLAW_GITHUB_TOKEN}@${effective_repo_url#https://}"
+  fi
+
+  if [ ! -d "${OPENCLAW_SOURCE_DIR}/.git" ]; then
+    echo "INFO: Cloning OpenClaw source repo into ${OPENCLAW_SOURCE_DIR}"
+    rm -rf "${OPENCLAW_SOURCE_DIR}"
+    git clone --branch "${target_branch}" "${effective_repo_url}" "${OPENCLAW_SOURCE_DIR}"
+  else
+    echo "INFO: Updating OpenClaw source repo in ${OPENCLAW_SOURCE_DIR}"
+    git -C "${OPENCLAW_SOURCE_DIR}" remote set-url origin "${effective_repo_url}"
+    git -C "${OPENCLAW_SOURCE_DIR}" fetch --prune origin
+    git -C "${OPENCLAW_SOURCE_DIR}" checkout "${target_branch}"
+    git -C "${OPENCLAW_SOURCE_DIR}" reset --hard "origin/${target_branch}"
+    git -C "${OPENCLAW_SOURCE_DIR}" clean -fd
+  fi
+
+  require_openclaw_source_repo || return 1
+
+  current_head="$(git -C "${OPENCLAW_SOURCE_DIR}" rev-parse HEAD)"
+  target_head="${current_head}"
+  if [ -f "${build_marker}" ]; then
+    last_built_head="$(cat "${build_marker}" 2>/dev/null || true)"
+  fi
+
+  if [ "${current_head}" = "${last_built_head}" ] && [ -d "${OPENCLAW_SOURCE_DIR}/node_modules" ] && [ -d "${OPENCLAW_SOURCE_DIR}/dist" ] && [ -d "${OPENCLAW_SOURCE_DIR}/ui/dist" ]; then
+    needs_build="false"
+  fi
+
+  if [ "${needs_build}" = "true" ]; then
+    echo "INFO: Building OpenClaw source checkout (${target_head})"
+    cd "${OPENCLAW_SOURCE_DIR}"
+    pnpm config set confirmModulesPurge false >/dev/null 2>&1 || true
+    pnpm config set global-bin-dir "${PNPM_HOME}" >/dev/null 2>&1 || true
+    pnpm install --no-frozen-lockfile --prefer-frozen-lockfile --prod=false
+    pnpm build
+    pnpm ui:build
+    printf '%s' "${target_head}" > "${build_marker}"
+  else
+    echo "INFO: OpenClaw source already built at ${target_head}; skipping rebuild"
+  fi
+
+  ensure_openclaw_wrapper
+  sync_source_skills
+  return 0
+}
+
+
+# ------------------------------------------------------------------------------
 # Graceful shutdown handling (PID 1 trap) to reduce stale locks
 # ------------------------------------------------------------------------------
 GW_PID=""
@@ -481,6 +607,16 @@ shutdown() {
 }
 
 trap shutdown INT TERM
+
+if [ "$INSTALL_MODE" = "source" ]; then
+  if ! configure_openclaw_source_mode; then
+    echo "ERROR: Failed to prepare OpenClaw source mode"
+    exit 1
+  fi
+else
+  remove_openclaw_wrapper
+  echo "INFO: Using OpenClaw package bundled in the add-on image"
+fi
 
 if ! command -v openclaw >/dev/null 2>&1; then
   echo "ERROR: openclaw is not installed."
@@ -520,6 +656,13 @@ cfg = {
 cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding='utf-8')
 print("INFO: Wrote minimal OpenClaw config (gateway.mode=local, auth.token generated)")
 PY
+fi
+
+if [ "$INSTALL_MODE" = "source" ]; then
+  echo "INFO: Running OpenClaw doctor for source-mode install..."
+  if ! openclaw doctor --non-interactive; then
+    echo "WARN: openclaw doctor reported issues; continuing startup with the built runtime"
+  fi
 fi
 
 # ------------------------------------------------------------------------------

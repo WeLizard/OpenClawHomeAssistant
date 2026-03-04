@@ -1,8 +1,8 @@
-name: OpenClaw Assistant
-version: "0.5.55"
+name: OpenClaw Assistant (Welizard Fork)
+version: "0.5.56-welizard.1"
 slug: openclaw_assistant
-description: Run OpenClaw Assistant (OpenClaw-compatible) as a Home Assistant add-on.
-url: https://github.com/techartdev/OpenClawHomeAssistant
+description: Run the Welizard OpenClaw fork as a Home Assistant add-on.
+url: https://github.com/Welizard-bot/OpenClawHomeAssistant
 arch:
   - amd64
   - aarch64
@@ -26,6 +26,16 @@ map:
   - media:rw
 options:
   timezone: "Europe/Sofia"
+
+  # Runtime installation mode:
+  # package: use the OpenClaw version baked into the add-on image
+  # source: clone/build Welizard-bot/openclaw into persistent storage on startup
+  install_mode: source
+
+  # Source mode repository settings
+  openclaw_repo_url: "https://github.com/Welizard-bot/openclaw.git"
+  openclaw_branch: "main"
+  openclaw_github_token: ""
 
   # Enable web terminal inside Home Assistant (Ingress) via ttyd
   enable_terminal: true
@@ -131,6 +141,10 @@ options:
 
 schema:
   timezone: str
+  install_mode: list(package|source)?
+  openclaw_repo_url: str?
+  openclaw_branch: str?
+  openclaw_github_token: password?
   enable_terminal: bool?
   terminal_port: int(1024,65535)?
   gateway_public_url: str?

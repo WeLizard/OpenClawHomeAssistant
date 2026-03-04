@@ -2,6 +2,25 @@ configuration:
   timezone:
     name: Fuso Horário
     description: Fuso horário do add-on (ex., America/Sao_Paulo, America/Fortaleza)
+
+  install_mode:
+    name: Modo de instalação do OpenClaw
+    description: Define como o OpenClaw será fornecido. Package usa a versão embutida na imagem do add-on; Source clona e compila o repositório configurado no armazenamento persistente na inicialização.
+    options:
+      package: "Package (OpenClaw embutido na imagem)"
+      source: "Source (clonar/compilar repositório)"
+
+  openclaw_repo_url:
+    name: URL do repositório OpenClaw
+    description: Repositório Git clonado quando o modo é Source (exemplo - https://github.com/Welizard-bot/openclaw.git)
+
+  openclaw_branch:
+    name: Branch do OpenClaw
+    description: Branch ou ref para checkout no modo Source (padrão - main)
+
+  openclaw_github_token:
+    name: Token GitHub do OpenClaw
+    description: Opcional - token do GitHub para repositórios privados no modo Source
   
   enable_terminal:
     name: Habilitar Terminal Web

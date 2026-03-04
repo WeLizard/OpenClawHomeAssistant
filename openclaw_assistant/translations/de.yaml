@@ -2,6 +2,25 @@ configuration:
   timezone:
     name: Zeitzone
     description: Zeitzone für das Add-on (z.B. Europe/Sofia, America/New_York)
+
+  install_mode:
+    name: OpenClaw-Installationsmodus
+    description: Legt fest, wie OpenClaw bereitgestellt wird. Package nutzt die im Add-on-Image enthaltene Version; Source klont und baut das konfigurierte Repository beim Start im persistenten Speicher.
+    options:
+      package: "Package (im Image enthalten)"
+      source: "Source (Repository klonen/kompilieren)"
+
+  openclaw_repo_url:
+    name: OpenClaw-Repository-URL
+    description: Git-Repository, das im Source-Modus geklont wird (Beispiel - https://github.com/Welizard-bot/openclaw.git)
+
+  openclaw_branch:
+    name: OpenClaw-Branch
+    description: Branch oder Ref für den Checkout im Source-Modus (Standard - main)
+
+  openclaw_github_token:
+    name: OpenClaw-GitHub-Token
+    description: Optional - GitHub-Token für private Repositories im Source-Modus
   
   enable_terminal:
     name: Web-Terminal aktivieren

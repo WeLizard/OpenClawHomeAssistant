@@ -2,6 +2,25 @@ configuration:
   timezone:
     name: Часова зона
     description: Часова зона за добавката (напр. Europe/Sofia, America/New_York)
+
+  install_mode:
+    name: Режим за инсталиране на OpenClaw
+    description: Избор как да се зарежда OpenClaw. Package използва версията, вградена в образа; Source клонира и компилира зададеното хранилище в постоянното хранилище при старт.
+    options:
+      package: "Package (OpenClaw от образа)"
+      source: "Source (клониране/компилация на хранилище)"
+
+  openclaw_repo_url:
+    name: URL на OpenClaw хранилище
+    description: Git хранилище за клониране когато режимът е Source (пример - https://github.com/Welizard-bot/openclaw.git)
+
+  openclaw_branch:
+    name: OpenClaw клон
+    description: Клон или ref за checkout в Source режим (по подразбиране - main)
+
+  openclaw_github_token:
+    name: OpenClaw GitHub токен
+    description: Опционално - GitHub токен за частни хранилища в Source режим
   
   enable_terminal:
     name: Активиране на уеб терминал

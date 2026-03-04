@@ -2,6 +2,17 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.1] - 2026-03-04
+
+### Added
+- New add-on options `install_mode`, `openclaw_repo_url`, `openclaw_branch`, and `openclaw_github_token`.
+- Source-mode runtime that clones and builds OpenClaw from a configured Git repository into persistent storage.
+
+### Changed
+- Fork defaults now target `https://github.com/Welizard-bot/openclaw.git` on branch `main`.
+- Source-mode installs now run `pnpm install`, `pnpm build`, `pnpm ui:build`, and `openclaw doctor --non-interactive` before startup.
+- Source-mode checkouts sync built-in skills from the checked-out repository into persistent storage.
+
 ## [0.5.54] - 2026-02-25
 
 ### Changed

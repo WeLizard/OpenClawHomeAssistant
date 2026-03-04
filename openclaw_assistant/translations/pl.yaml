@@ -2,6 +2,25 @@ configuration:
   timezone:
     name: Strefa czasowa
     description: Strefa czasowa dla dodatku (np. Europe/Warsaw, America/New_York)
+
+  install_mode:
+    name: Tryb instalacji OpenClaw
+    description: Wybiera sposób dostarczania OpenClaw. Package używa wersji wbudowanej w obraz dodatku; Source klonuje i buduje wskazane repozytorium do trwałej pamięci przy starcie.
+    options:
+      package: "Package (OpenClaw z obrazu)"
+      source: "Source (klonowanie/budowanie repozytorium)"
+
+  openclaw_repo_url:
+    name: URL repozytorium OpenClaw
+    description: Repozytorium Git klonowane w trybie Source (przykład - https://github.com/Welizard-bot/openclaw.git)
+
+  openclaw_branch:
+    name: Gałąź OpenClaw
+    description: Gałąź lub ref do checkout w trybie Source (domyślnie - main)
+
+  openclaw_github_token:
+    name: Token GitHub OpenClaw
+    description: Opcjonalnie - token GitHub do prywatnych repozytoriów w trybie Source
   
   enable_terminal:
     name: Włącz terminal webowy

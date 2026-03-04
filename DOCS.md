@@ -261,6 +261,15 @@ All options are set via **Settings → Apps/Add-ons → OpenClaw Assistant → C
 |---|---|---|---|
 | `timezone` | string | `Europe/Sofia` | Timezone for the add-on (e.g., `America/New_York`, `Europe/London`) |
 
+### Runtime Source
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `install_mode` | `package` / `source` | `source` | `package`: use the OpenClaw version bundled in the add-on image. `source`: clone/build the configured repository into persistent storage on startup |
+| `openclaw_repo_url` | string | `https://github.com/Welizard-bot/openclaw.git` | Git repository used in `source` mode |
+| `openclaw_branch` | string | `main` | Branch or ref checked out in `source` mode |
+| `openclaw_github_token` | string | _(empty)_ | Optional GitHub token for private repositories in `source` mode |
+
 ### Gateway
 
 | Option | Type | Default | Description |
