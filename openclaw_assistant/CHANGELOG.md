@@ -2,6 +2,15 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.2] - 2026-03-05
+
+### Added
+- Model account pool controls in Control UI: disable account, enable account, and delete account.
+
+### Fixed
+- "Make primary" now works correctly for providers with alias keys.
+- OAuth re-auth entry from model-auth no longer sends unsupported `wizard.start` params (`flow`, `provider`, `oauthOnly`) and keeps provider context on the client side.
+
 ## [0.5.56-welizard.1] - 2026-03-04
 
 ### Added
