@@ -39,12 +39,12 @@ This repository contains a Home Assistant add-on that runs **OpenClaw** inside *
 1. Home Assistant → **Settings → Add-ons → Add-on store**
 2. **⋮ → Repositories**
 3. Add this repo:
-   - `https://github.com/techartdev/OpenClawHomeAssistant`
+   - `https://github.com/WeLizard/OpenClawHomeAssistant`
 4. Install **OpenClaw Assistant**
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=techartdev/OpenClawHomeAssistant&type=date&legend=top-left)](https://www.star-history.com/#techartdev/OpenClawHomeAssistant&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=WeLizard/OpenClawHomeAssistant&type=date&legend=top-left)](https://www.star-history.com/#WeLizard/OpenClawHomeAssistant&type=date&legend=top-left)
 
 ## Support / Donations
 

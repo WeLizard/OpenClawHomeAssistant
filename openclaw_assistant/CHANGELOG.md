@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.4] - 2026-03-05
+
+### Changed
+- Added release metadata validation helpers so add-on releases can be bumped consistently.
+- Fixed repository links and maintainer guidance to point to the WeLizard fork consistently.
+
 ## [0.5.56-welizard.3] - 2026-03-05
 
 ### Changed
@@ -244,4 +250,4 @@ This update contains lots of changes. It is adviced to backup before installing!
 
 ---
 
-For the full commit history, see [GitHub commits](https://github.com/techartdev/OpenClawHomeAssistant/commits/main).
+For the full commit history, see [GitHub commits](https://github.com/WeLizard/OpenClawHomeAssistant/commits/main).
