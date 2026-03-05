@@ -2,6 +2,15 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.3] - 2026-03-05
+
+### Changed
+- Release bump to force Home Assistant update detection for the WeLizard add-on channel.
+
+### Notes
+- In `install_mode: source`, OpenClaw core updates are pulled from `https://github.com/WeLizard/openclaw.git` on add-on start.
+- If the add-on is already installed, restart it once to fetch the latest `openclaw` `main` commit.
+
 ## [0.5.56-welizard.2] - 2026-03-05
 
 ### Added
