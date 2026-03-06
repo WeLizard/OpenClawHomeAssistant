@@ -2,6 +2,13 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.10] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard OpenClaw provider-auth migration fixes as a proper add-on update.
+- `Overview -> Accounts -> Auth setup` now reuses an existing custom provider's endpoint context instead of dropping the user into the full provider gallery when the target is already a configured custom endpoint.
+- Existing custom endpoints such as `cliproxy` now open the custom-provider flow with their current endpoint ID, base URL, model ID, and compatibility prefilled, so migrating them to profile-backed auth no longer requires manual re-entry or duplicate providers.
+
 ## [0.5.56-welizard.9] - 2026-03-06
 
 ### Changed
