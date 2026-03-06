@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.11] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard provider-status cleanup as a proper add-on update.
+- Profile-backed API key providers now report as healthy in `Overview -> Accounts` instead of showing the misleading `static` provider status after a successful custom-provider migration.
+
 ## [0.5.56-welizard.10] - 2026-03-06
 
 ### Changed
