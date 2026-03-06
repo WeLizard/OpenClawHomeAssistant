@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.12] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard Control UI wizard-session recovery fix as a proper add-on update.
+- `Overview -> Accounts -> Auth setup` no longer shows a false `wizard not found` error after a successful custom-provider save if the gateway restarts before the final note step is acknowledged.
+
 ## [0.5.56-welizard.11] - 2026-03-06
 
 ### Changed
