@@ -2,6 +2,13 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.9] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard OpenClaw auth fixes as a proper add-on update.
+- Custom Provider onboarding now stores API keys in OpenClaw auth profiles instead of leaving them only inline in `openclaw.json`, so provider accounts behave like real managed accounts.
+- `Overview -> Accounts` now reports legacy static/environment-backed providers correctly instead of showing a misleading `no profiles` state for providers that do not use auth profiles.
+
 ## [0.5.56-welizard.8] - 2026-03-06
 
 ### Changed
