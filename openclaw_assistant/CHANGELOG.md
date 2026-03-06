@@ -2,6 +2,13 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.13] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard `Overview` and `Config` polish as a proper add-on update.
+- `Overview -> Accounts` now shows profile-backed API-key providers like `cliproxy` as healthy instead of the misleading static-status chip.
+- `Config` now localizes the top mixed-language areas for `Auth`, `Logging`, `Updates`, `CLI`, and `Diagnostics`, including section/subsection labels and help text.
+
 ## [0.5.56-welizard.12] - 2026-03-06
 
 ### Changed
