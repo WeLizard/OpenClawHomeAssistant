@@ -2,6 +2,11 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.7] - 2026-03-06
+
+### Changed
+- TODO: describe the user-visible change.
+
 ## [0.5.56-welizard.6] - 2026-03-06
 
 ### Changed
