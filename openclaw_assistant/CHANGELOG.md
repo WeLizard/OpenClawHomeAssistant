@@ -5,7 +5,8 @@ All notable changes to the OpenClaw Assistant Home Assistant Add-on will be docu
 ## [0.5.56-welizard.7] - 2026-03-06
 
 ### Changed
-- TODO: describe the user-visible change.
+- Release bump so Home Assistant pulls the latest WeLizard OpenClaw fixes as a proper add-on update.
+- Includes Control UI fixes for wizard flow matching, channel schema merging for extension channels, and localized chat copy-as-markdown actions.
 
 ## [0.5.56-welizard.6] - 2026-03-06
 
