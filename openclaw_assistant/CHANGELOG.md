@@ -2,6 +2,13 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.15] - 2026-03-07
+
+### Changed
+- Release bump so Home Assistant pulls the latest synchronized `welizard/openclaw:main` as a proper add-on update.
+- `welizard/main` is now rebased onto the current upstream `openclaw/openclaw:main` history without dragging workflow-file updates that require elevated GitHub token scope.
+- Added balanced token-optimization guidance for long-lived tool-heavy agents, including the recommended `contextTokens/bootstrap/compaction/contextPruning` baseline and explicit guidance to use `contextPruning.mode: "always"` for generic OpenAI-compatible custom providers such as `cliproxy/gpt-5.4`.
+
 ## [0.5.56-welizard.14] - 2026-03-07
 
 ### Changed
