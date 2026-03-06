@@ -2,6 +2,13 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.14] - 2026-03-07
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard custom-provider defaults fix as a proper add-on update.
+- `Custom Provider` onboarding no longer seeds new models with the overly small legacy `16000/4096` limits.
+- Re-running auth setup for a legacy custom endpoint now upgrades the old `16000/4096` wizard defaults to larger catalog-style limits, which reduces constant context compaction for providers like `cliproxy/gpt-5.4`.
+
 ## [0.5.56-welizard.13] - 2026-03-06
 
 ### Changed
