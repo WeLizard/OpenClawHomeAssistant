@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.6] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant detects the latest WeLizard OpenClaw update as a real add-on upgrade.
+- In `install_mode: source`, this update pulls the latest `WeLizard/openclaw` `main` with wizard flow matching fixes, improved channel schema fallbacks, and better provider-auth behavior in Control UI.
+
 ## [0.5.56-welizard.5] - 2026-03-06
 
 ### Changed
