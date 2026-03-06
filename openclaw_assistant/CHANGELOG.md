@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.8] - 2026-03-06
+
+### Changed
+- Release bump so Home Assistant pulls the latest WeLizard OpenClaw Control UI changes as a proper add-on update.
+- Includes a new `Overview -> Accounts -> Add provider` entry point that launches the same model auth wizard as the console `openclaw models auth login`, including `Custom Provider` for OpenAI-compatible and Anthropic-compatible endpoints.
+
 ## [0.5.56-welizard.7] - 2026-03-06
 
 ### Changed
