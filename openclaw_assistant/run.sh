@@ -580,6 +580,7 @@ configure_openclaw_source_mode() {
 GW_PID=""
 NGINX_PID=""
 TTYD_PID=""
+SCENE_EDITOR_PID=""
 SHUTTING_DOWN="false"
 
 shutdown() {
@@ -594,6 +595,11 @@ shutdown() {
   if [ -n "${TTYD_PID}" ] && kill -0 "${TTYD_PID}" >/dev/null 2>&1; then
     kill -TERM "${TTYD_PID}" >/dev/null 2>&1 || true
     wait "${TTYD_PID}" || true
+  fi
+
+  if [ -n "${SCENE_EDITOR_PID}" ] && kill -0 "${SCENE_EDITOR_PID}" >/dev/null 2>&1; then
+    kill -TERM "${SCENE_EDITOR_PID}" >/dev/null 2>&1 || true
+    wait "${SCENE_EDITOR_PID}" || true
   fi
 
   if [ -n "${GW_PID}" ] && kill -0 "${GW_PID}" >/dev/null 2>&1; then
@@ -929,6 +935,42 @@ if [ "$ENABLE_TERMINAL" = "true" ] || [ "$ENABLE_TERMINAL" = "1" ]; then
   echo "ttyd started with PID $TTYD_PID"
 else
   echo "Terminal disabled (enable_terminal=$ENABLE_TERMINAL)"
+fi
+
+# Start local scene-config service for the ingress editor.
+SCENE_EDITOR_PID_FILE="/var/run/openclaw-scene-editor.pid"
+SCENE_EDITOR_HOST="127.0.0.1"
+SCENE_EDITOR_PORT="48098"
+SCENE_EDITOR_CONFIG_PATH="${SCENE_EDITOR_CONFIG_PATH:-/config/www/neiri-scene/scene.default.json}"
+export SCENE_EDITOR_HOST
+export SCENE_EDITOR_PORT
+export SCENE_EDITOR_CONFIG_PATH
+
+if [ -f "$SCENE_EDITOR_PID_FILE" ]; then
+  OLD_SCENE_EDITOR_PID=$(cat "$SCENE_EDITOR_PID_FILE" 2>/dev/null || echo "")
+  if [ -n "$OLD_SCENE_EDITOR_PID" ] && kill -0 "$OLD_SCENE_EDITOR_PID" 2>/dev/null; then
+    echo "Stopping previous scene editor service (PID $OLD_SCENE_EDITOR_PID)..."
+    kill "$OLD_SCENE_EDITOR_PID" 2>/dev/null || true
+    sleep 1
+    kill -9 "$OLD_SCENE_EDITOR_PID" 2>/dev/null || true
+  fi
+  rm -f "$SCENE_EDITOR_PID_FILE"
+fi
+
+if command -v pkill >/dev/null 2>&1; then
+  pkill -f "python3 /scene_config_service.py" 2>/dev/null || true
+  sleep 1
+fi
+
+echo "Starting scene editor service on ${SCENE_EDITOR_HOST}:${SCENE_EDITOR_PORT} ..."
+python3 /scene_config_service.py &
+SCENE_EDITOR_PID=$!
+sleep 1
+if kill -0 "$SCENE_EDITOR_PID" 2>/dev/null; then
+  echo "$SCENE_EDITOR_PID" > "$SCENE_EDITOR_PID_FILE"
+  echo "scene editor started with PID $SCENE_EDITOR_PID"
+else
+  echo "WARN: scene editor failed to start (PID $SCENE_EDITOR_PID exited); ingress scene editing will be unavailable"
 fi
 
 # Start ingress reverse proxy (nginx). This provides the add-on UI inside HA.

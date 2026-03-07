@@ -126,11 +126,12 @@ EOF
 COPY run.sh /run.sh
 COPY oc_config_helper.py /oc_config_helper.py
 COPY render_nginx.py /render_nginx.py
+COPY scene_config_service.py /scene_config_service.py
 COPY oc-cleanup.sh /usr/local/bin/oc-cleanup
 COPY openclaw-proxy-shim.cjs /usr/local/lib/openclaw-proxy-shim.cjs
 COPY nginx.conf.tpl /etc/nginx/nginx.conf.tpl
 COPY landing.html.tpl /etc/nginx/landing.html.tpl
-RUN chmod +x /run.sh /oc_config_helper.py /render_nginx.py /usr/local/bin/oc-cleanup \
+RUN chmod +x /run.sh /oc_config_helper.py /render_nginx.py /scene_config_service.py /usr/local/bin/oc-cleanup \
  && mkdir -p /run/nginx
 
 CMD [ "/run.sh" ]

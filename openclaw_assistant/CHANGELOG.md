@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.16] - 2026-03-07
+
+### Changed
+- Add an ingress-owned `Open Scene Editor` to OpenClaw Assistant for editing the renderer scene config at `/config/www/neiri-scene/scene.default.json`.
+- Keep scene-config read/write ownership inside OpenClaw Assistant instead of HAOS-kiosk, so the kiosk add-on can stay focused on browser/device runtime only.
+
 ## [0.5.56-welizard.15] - 2026-03-07
 
 ### Changed

@@ -34,6 +34,7 @@ The add-on container runs three services:
 
 When you open the add-on page in Home Assistant, nginx serves a landing page with:
 - An **Open Gateway Web UI** button (opens in a new tab to avoid WebSocket issues with Ingress)
+- An **Open Scene Editor** button for the renderer scene config at `/config/www/neiri-scene/scene.default.json`
 - An embedded **terminal** for running commands
 
 ### Key directories
