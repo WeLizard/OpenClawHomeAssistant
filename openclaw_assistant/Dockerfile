@@ -127,6 +127,7 @@ COPY run.sh /run.sh
 COPY oc_config_helper.py /oc_config_helper.py
 COPY render_nginx.py /render_nginx.py
 COPY scene_config_service.py /scene_config_service.py
+COPY workspace-hooks /opt/openclaw-assistant/workspace-hooks
 COPY oc-cleanup.sh /usr/local/bin/oc-cleanup
 COPY openclaw-proxy-shim.cjs /usr/local/lib/openclaw-proxy-shim.cjs
 COPY nginx.conf.tpl /etc/nginx/nginx.conf.tpl

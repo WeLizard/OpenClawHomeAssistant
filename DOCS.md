@@ -43,7 +43,7 @@ When you open the add-on page in Home Assistant, nginx serves a landing page wit
 |---|---|---|
 | `/config/` | Yes | All user data — survives add-on updates and rebuilds |
 | `/config/.openclaw/` | Yes | OpenClaw configuration (`openclaw.json`), skills, agent data |
-| `/config/clawd/` | Yes | Agent workspace (ClawHub-installed skills, files) |
+| `/config/clawd/` | Yes | Agent workspace (ClawHub-installed skills, files, workspace hooks) |
 | `/config/.node_global/` | Yes | User-installed npm packages (skills installed via dashboard) |
 | `/config/secrets/` | Yes | Tokens (e.g., `homeassistant.token`) |
 | `/config/keys/` | Yes | SSH keys (e.g., router SSH key) |
@@ -75,8 +75,9 @@ When you open the add-on page in Home Assistant, nginx serves a landing page wit
 When the add-on starts for the first time, it automatically:
 1. Creates persistent directories under `/config/`
 2. Generates a minimal `openclaw.json` with a random gateway auth token
-3. Syncs built-in skills to persistent storage
-4. Starts the gateway, terminal, and nginx
+3. Seeds built-in workspace hooks (including `neiri-avatar-state`) into `/config/clawd/hooks/` without overwriting existing user copies
+4. Syncs built-in skills to persistent storage
+5. Starts the gateway, terminal, and nginx
 
 ### Step 1 — Run onboarding
 

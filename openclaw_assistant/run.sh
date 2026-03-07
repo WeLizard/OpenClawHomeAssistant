@@ -159,8 +159,23 @@ export OPENCLAW_WORKSPACE_DIR=/config/clawd
 export XDG_CONFIG_HOME=/config
 LOCAL_BIN_DIR="/config/bin"
 OPENCLAW_SOURCE_DIR="/config/openclaw-src"
+IMAGE_WORKSPACE_HOOKS_DIR="/opt/openclaw-assistant/workspace-hooks"
+PERSISTENT_WORKSPACE_HOOKS_DIR="${OPENCLAW_WORKSPACE_DIR}/hooks"
 
 mkdir -p /config/.openclaw /config/.openclaw/identity /config/clawd /config/keys /config/secrets "$LOCAL_BIN_DIR"
+mkdir -p "$PERSISTENT_WORKSPACE_HOOKS_DIR"
+
+# Seed built-in workspace hooks without overwriting user-managed copies.
+if [ -d "$IMAGE_WORKSPACE_HOOKS_DIR" ]; then
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --ignore-existing "$IMAGE_WORKSPACE_HOOKS_DIR/" "$PERSISTENT_WORKSPACE_HOOKS_DIR/" 2>/dev/null || true
+  else
+    cp -rn "$IMAGE_WORKSPACE_HOOKS_DIR/." "$PERSISTENT_WORKSPACE_HOOKS_DIR/" 2>/dev/null || true
+  fi
+  if [ -f "$PERSISTENT_WORKSPACE_HOOKS_DIR/neiri-avatar-state/handler.ts" ]; then
+    echo "INFO: Ensured seeded workspace hooks exist at $PERSISTENT_WORKSPACE_HOOKS_DIR"
+  fi
+fi
 
 # ------------------------------------------------------------------------------
 # Sync built-in OpenClaw skills from image to persistent storage

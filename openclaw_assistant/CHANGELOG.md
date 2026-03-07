@@ -2,6 +2,12 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.17] - 2026-03-07
+
+### Changed
+- Bundle the live `neiri-avatar-state` workspace hook into the add-on image and seed it into `/config/clawd/hooks/` on startup.
+- Seed hooks with a one-way copy that preserves any existing user-managed hook overrides already stored in persistent workspace data.
+
 ## [0.5.56-welizard.16] - 2026-03-07
 
 ### Changed
