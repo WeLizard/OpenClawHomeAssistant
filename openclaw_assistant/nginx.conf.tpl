@@ -43,49 +43,8 @@ http {
       proxy_send_timeout 3600s;
     }
 
-    location = /scene-editor {
-      return 302 /scene-editor/;
-    }
-
-    location ^~ /scene-editor/ {
-      proxy_pass http://127.0.0.1:48098;
-      proxy_http_version 1.1;
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $remote_addr;
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_read_timeout 3600s;
-      proxy_send_timeout 3600s;
-    }
-
-    location = /scene {
-      return 302 /scene/;
-    }
-
-    location = /scene/ {
-      return 302 /scene-runtime/;
-    }
-
-    location ^~ /scene-api/ {
-      proxy_pass http://127.0.0.1:48097;
-      proxy_http_version 1.1;
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $remote_addr;
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_read_timeout 3600s;
-      proxy_send_timeout 3600s;
-    }
-
-    location ^~ /scene-runtime/ {
-      root /config/openclaw-scene;
-      index index.html;
-      try_files $uri $uri/ /scene-runtime/index.html;
-    }
-
-    location ^~ /scene-packs/ {
-      root /config/openclaw-scene;
-      try_files $uri =404;
+    location ~ ^/scene(?:$|/)|^/scene-editor(?:$|/)|^/scene-api/|^/scene-runtime/|^/scene-packs/ {
+      return 410;
     }
 
     # Landing page (shown inside HA Ingress)

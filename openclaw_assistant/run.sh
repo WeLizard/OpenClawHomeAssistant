@@ -161,22 +161,9 @@ LOCAL_BIN_DIR="/config/bin"
 OPENCLAW_SOURCE_DIR="/config/openclaw-src"
 IMAGE_WORKSPACE_HOOKS_DIR="/opt/openclaw-assistant/workspace-hooks"
 PERSISTENT_WORKSPACE_HOOKS_DIR="${OPENCLAW_WORKSPACE_DIR}/hooks"
-SCENE_ROOT="/config/openclaw-scene"
-SCENE_RUNTIME_DIR="${SCENE_ROOT}/scene-runtime"
-SCENE_PACKS_DIR="${SCENE_ROOT}/scene-packs"
-SCENE_ACTIVE_PACK_FILE="${SCENE_ROOT}/active-pack.json"
-SCENE_DEFAULT_PACK_ID="neiri"
-SCENE_DEFAULT_PACK_DIR="${SCENE_PACKS_DIR}/${SCENE_DEFAULT_PACK_ID}"
-LEGACY_NEIRI_SCENE_DIR="/config/www/neiri-scene"
-IMAGE_SCENE_RUNTIME_SEED_DIR="/opt/openclaw-assistant/scene-runtime-seed"
 
 mkdir -p /config/.openclaw /config/.openclaw/identity /config/clawd /config/keys /config/secrets "$LOCAL_BIN_DIR"
 mkdir -p "$PERSISTENT_WORKSPACE_HOOKS_DIR"
-mkdir -p "$SCENE_RUNTIME_DIR" "$SCENE_PACKS_DIR" "$SCENE_DEFAULT_PACK_DIR"
-
-if [ ! -f "$SCENE_ACTIVE_PACK_FILE" ]; then
-  printf '{\n  "id": "%s"\n}\n' "$SCENE_DEFAULT_PACK_ID" > "$SCENE_ACTIVE_PACK_FILE"
-fi
 
 # Seed built-in workspace hooks without overwriting user-managed copies.
 if [ -d "$IMAGE_WORKSPACE_HOOKS_DIR" ]; then
@@ -188,30 +175,6 @@ if [ -d "$IMAGE_WORKSPACE_HOOKS_DIR" ]; then
   if [ -f "$PERSISTENT_WORKSPACE_HOOKS_DIR/neiri-avatar-state/handler.ts" ]; then
     echo "INFO: Ensured seeded workspace hooks exist at $PERSISTENT_WORKSPACE_HOOKS_DIR"
   fi
-fi
-
-if [ -d "$IMAGE_SCENE_RUNTIME_SEED_DIR" ] && [ ! -f "$SCENE_RUNTIME_DIR/index.html" ]; then
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a --ignore-existing "$IMAGE_SCENE_RUNTIME_SEED_DIR/" "$SCENE_RUNTIME_DIR/" 2>/dev/null || true
-  else
-    cp -rn "$IMAGE_SCENE_RUNTIME_SEED_DIR/." "$SCENE_RUNTIME_DIR/" 2>/dev/null || true
-  fi
-  if [ -f "$SCENE_RUNTIME_DIR/index.html" ]; then
-    echo "INFO: Ensured scene runtime seed exists at $SCENE_RUNTIME_DIR"
-  fi
-fi
-
-# One-way migration bridge: seed the canonical pack root from legacy /config/www
-# only when the new files do not exist yet.
-if [ -d "$LEGACY_NEIRI_SCENE_DIR" ]; then
-  for scene_file in scene.default.json entity-map.json avatar.manifest.json neiri-control.json renderer.kiosk-scene.json; do
-    LEGACY_SCENE_FILE_PATH="${LEGACY_NEIRI_SCENE_DIR}/${scene_file}"
-    CANONICAL_SCENE_FILE_PATH="${SCENE_DEFAULT_PACK_DIR}/${scene_file}"
-    if [ -f "$LEGACY_SCENE_FILE_PATH" ] && [ ! -f "$CANONICAL_SCENE_FILE_PATH" ]; then
-      cp "$LEGACY_SCENE_FILE_PATH" "$CANONICAL_SCENE_FILE_PATH"
-      echo "INFO: Migrated ${scene_file} into canonical scene pack root at $CANONICAL_SCENE_FILE_PATH"
-    fi
-  done
 fi
 
 # ------------------------------------------------------------------------------
@@ -632,8 +595,6 @@ configure_openclaw_source_mode() {
 GW_PID=""
 NGINX_PID=""
 TTYD_PID=""
-SCENE_EDITOR_PID=""
-SCENE_HOST_PID=""
 SHUTTING_DOWN="false"
 
 shutdown() {
@@ -648,16 +609,6 @@ shutdown() {
   if [ -n "${TTYD_PID}" ] && kill -0 "${TTYD_PID}" >/dev/null 2>&1; then
     kill -TERM "${TTYD_PID}" >/dev/null 2>&1 || true
     wait "${TTYD_PID}" || true
-  fi
-
-  if [ -n "${SCENE_EDITOR_PID}" ] && kill -0 "${SCENE_EDITOR_PID}" >/dev/null 2>&1; then
-    kill -TERM "${SCENE_EDITOR_PID}" >/dev/null 2>&1 || true
-    wait "${SCENE_EDITOR_PID}" || true
-  fi
-
-  if [ -n "${SCENE_HOST_PID}" ] && kill -0 "${SCENE_HOST_PID}" >/dev/null 2>&1; then
-    kill -TERM "${SCENE_HOST_PID}" >/dev/null 2>&1 || true
-    wait "${SCENE_HOST_PID}" || true
   fi
 
   if [ -n "${GW_PID}" ] && kill -0 "${GW_PID}" >/dev/null 2>&1; then
@@ -993,88 +944,6 @@ if [ "$ENABLE_TERMINAL" = "true" ] || [ "$ENABLE_TERMINAL" = "1" ]; then
   echo "ttyd started with PID $TTYD_PID"
 else
   echo "Terminal disabled (enable_terminal=$ENABLE_TERMINAL)"
-fi
-
-# Start local scene-config service for the ingress editor.
-SCENE_EDITOR_PID_FILE="/var/run/openclaw-scene-editor.pid"
-SCENE_EDITOR_HOST="127.0.0.1"
-SCENE_EDITOR_PORT="48098"
-export SCENE_EDITOR_HOST
-export SCENE_EDITOR_PORT
-export SCENE_ROOT
-export SCENE_PACKS_DIR
-export SCENE_ACTIVE_PACK_FILE
-export SCENE_DEFAULT_PACK_ID
-if [ -n "${SCENE_EDITOR_CONFIG_PATH:-}" ]; then
-  export SCENE_EDITOR_CONFIG_PATH
-fi
-
-if [ -f "$SCENE_EDITOR_PID_FILE" ]; then
-  OLD_SCENE_EDITOR_PID=$(cat "$SCENE_EDITOR_PID_FILE" 2>/dev/null || echo "")
-  if [ -n "$OLD_SCENE_EDITOR_PID" ] && kill -0 "$OLD_SCENE_EDITOR_PID" 2>/dev/null; then
-    echo "Stopping previous scene editor service (PID $OLD_SCENE_EDITOR_PID)..."
-    kill "$OLD_SCENE_EDITOR_PID" 2>/dev/null || true
-    sleep 1
-    kill -9 "$OLD_SCENE_EDITOR_PID" 2>/dev/null || true
-  fi
-  rm -f "$SCENE_EDITOR_PID_FILE"
-fi
-
-if command -v pkill >/dev/null 2>&1; then
-  pkill -f "python3 /scene_config_service.py" 2>/dev/null || true
-  sleep 1
-fi
-
-echo "Starting scene editor service on ${SCENE_EDITOR_HOST}:${SCENE_EDITOR_PORT} ..."
-python3 /scene_config_service.py &
-SCENE_EDITOR_PID=$!
-sleep 1
-if kill -0 "$SCENE_EDITOR_PID" 2>/dev/null; then
-  echo "$SCENE_EDITOR_PID" > "$SCENE_EDITOR_PID_FILE"
-  echo "scene editor started with PID $SCENE_EDITOR_PID"
-else
-  echo "WARN: scene editor failed to start (PID $SCENE_EDITOR_PID exited); ingress scene editing will be unavailable"
-fi
-
-# Start scene host bootstrap service.
-SCENE_HOST_PID_FILE="/var/run/openclaw-scene-host.pid"
-SCENE_HOST_BIND="127.0.0.1"
-SCENE_HOST_PORT="48097"
-SCENE_API_PREFIX="/scene-api"
-export SCENE_HOST_BIND
-export SCENE_HOST_PORT
-export SCENE_API_PREFIX
-export SCENE_ROOT
-export SCENE_RUNTIME_DIR
-export SCENE_PACKS_DIR
-export SCENE_ACTIVE_PACK_FILE
-export SCENE_DEFAULT_PACK_ID
-
-if [ -f "$SCENE_HOST_PID_FILE" ]; then
-  OLD_SCENE_HOST_PID=$(cat "$SCENE_HOST_PID_FILE" 2>/dev/null || echo "")
-  if [ -n "$OLD_SCENE_HOST_PID" ] && kill -0 "$OLD_SCENE_HOST_PID" 2>/dev/null; then
-    echo "Stopping previous scene host service (PID $OLD_SCENE_HOST_PID)..."
-    kill "$OLD_SCENE_HOST_PID" 2>/dev/null || true
-    sleep 1
-    kill -9 "$OLD_SCENE_HOST_PID" 2>/dev/null || true
-  fi
-  rm -f "$SCENE_HOST_PID_FILE"
-fi
-
-if command -v pkill >/dev/null 2>&1; then
-  pkill -f "python3 /scene_host_service.py" 2>/dev/null || true
-  sleep 1
-fi
-
-echo "Starting scene host service on ${SCENE_HOST_BIND}:${SCENE_HOST_PORT} ..."
-python3 /scene_host_service.py &
-SCENE_HOST_PID=$!
-sleep 1
-if kill -0 "$SCENE_HOST_PID" 2>/dev/null; then
-  echo "$SCENE_HOST_PID" > "$SCENE_HOST_PID_FILE"
-  echo "scene host started with PID $SCENE_HOST_PID"
-else
-  echo "WARN: scene host failed to start (PID $SCENE_HOST_PID exited); dedicated scene hosting will be unavailable"
 fi
 
 # Start ingress reverse proxy (nginx). This provides the add-on UI inside HA.
