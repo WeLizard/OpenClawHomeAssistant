@@ -2,11 +2,11 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
-## [0.5.56-welizard.18] - 2026-03-08
+## [0.5.56-welizard.19] - 2026-03-08
 
 ### Changed
 - Add dedicated scene-host scaffolding inside OpenClaw Assistant with separate `/scene/`, `/scene-api/`, `/scene-runtime/`, and `/scene-packs/` ingress routes.
-- Seed a placeholder runtime into `/config/openclaw-scene/scene-runtime/` so the add-on has a canonical app root for future `kiosk-scene + pack` delivery.
+- Seed a hosted `kiosk-scene` runtime into `/config/openclaw-scene/scene-runtime/` so the add-on can serve a real generic scene app on first install.
 - Move the ingress scene editor onto the active pack path under `/config/openclaw-scene/scene-packs/<active-pack>/scene.default.json`, with `/config/www/...` kept as read-only migration fallback.
 - Seed the canonical `neiri` pack root from legacy `/config/www/neiri-scene/` only when the new pack files are still missing, and expose pack file entrypoints from `/scene-api/bootstrap`.
 

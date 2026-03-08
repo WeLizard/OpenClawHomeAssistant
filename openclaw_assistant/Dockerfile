@@ -129,7 +129,7 @@ COPY render_nginx.py /render_nginx.py
 COPY scene_config_service.py /scene_config_service.py
 COPY scene_host_service.py /scene_host_service.py
 COPY workspace-hooks /opt/openclaw-assistant/workspace-hooks
-COPY scene-runtime-placeholder /opt/openclaw-assistant/scene-runtime-placeholder
+COPY scene-runtime-seed /opt/openclaw-assistant/scene-runtime-seed
 COPY oc-cleanup.sh /usr/local/bin/oc-cleanup
 COPY openclaw-proxy-shim.cjs /usr/local/lib/openclaw-proxy-shim.cjs
 COPY nginx.conf.tpl /etc/nginx/nginx.conf.tpl

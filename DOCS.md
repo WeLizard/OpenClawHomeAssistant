@@ -78,7 +78,7 @@ When the add-on starts for the first time, it automatically:
 1. Creates persistent directories under `/config/`
 2. Generates a minimal `openclaw.json` with a random gateway auth token
 3. Seeds built-in workspace hooks (including `neiri-avatar-state`) into `/config/clawd/hooks/` without overwriting existing user copies
-4. Seeds a placeholder scene runtime into `/config/openclaw-scene/scene-runtime/` and initializes `/config/openclaw-scene/active-pack.json`
+4. Seeds a hosted `kiosk-scene` runtime into `/config/openclaw-scene/scene-runtime/` and initializes `/config/openclaw-scene/active-pack.json`
 5. Syncs built-in skills to persistent storage
 6. Starts the gateway, terminal, scene services, and nginx
 

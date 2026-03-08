@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7fbfe"/>
+      <stop offset="100%" stop-color="#d7e8f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="900" rx="48" fill="url(#bg)"/>
+  <circle cx="300" cy="250" r="120" fill="#c0d8e7"/>
+  <path d="M180 690C180 582 233 510 300 510C367 510 420 582 420 690V756H180V690Z" fill="#aac8db"/>
+  <circle cx="254" cy="238" r="10" fill="#284256"/>
+  <circle cx="346" cy="238" r="10" fill="#284256"/>
+  <path d="M256 312C279 330 321 330 344 312" stroke="#284256" stroke-width="14" stroke-linecap="round"/>
+  <path d="M206 145C236 98 283 76 344 82C395 87 431 113 451 162" stroke="#90b4cb" stroke-width="36" stroke-linecap="round"/>
+  <text x="300" y="840" text-anchor="middle" fill="#284256" font-family="Segoe UI, Arial, sans-serif" font-size="34">Demo Avatar</text>
+</svg>
+

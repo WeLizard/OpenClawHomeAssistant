@@ -168,7 +168,7 @@ SCENE_ACTIVE_PACK_FILE="${SCENE_ROOT}/active-pack.json"
 SCENE_DEFAULT_PACK_ID="neiri"
 SCENE_DEFAULT_PACK_DIR="${SCENE_PACKS_DIR}/${SCENE_DEFAULT_PACK_ID}"
 LEGACY_NEIRI_SCENE_DIR="/config/www/neiri-scene"
-IMAGE_SCENE_RUNTIME_PLACEHOLDER_DIR="/opt/openclaw-assistant/scene-runtime-placeholder"
+IMAGE_SCENE_RUNTIME_SEED_DIR="/opt/openclaw-assistant/scene-runtime-seed"
 
 mkdir -p /config/.openclaw /config/.openclaw/identity /config/clawd /config/keys /config/secrets "$LOCAL_BIN_DIR"
 mkdir -p "$PERSISTENT_WORKSPACE_HOOKS_DIR"
@@ -190,14 +190,14 @@ if [ -d "$IMAGE_WORKSPACE_HOOKS_DIR" ]; then
   fi
 fi
 
-if [ -d "$IMAGE_SCENE_RUNTIME_PLACEHOLDER_DIR" ] && [ ! -f "$SCENE_RUNTIME_DIR/index.html" ]; then
+if [ -d "$IMAGE_SCENE_RUNTIME_SEED_DIR" ] && [ ! -f "$SCENE_RUNTIME_DIR/index.html" ]; then
   if command -v rsync >/dev/null 2>&1; then
-    rsync -a --ignore-existing "$IMAGE_SCENE_RUNTIME_PLACEHOLDER_DIR/" "$SCENE_RUNTIME_DIR/" 2>/dev/null || true
+    rsync -a --ignore-existing "$IMAGE_SCENE_RUNTIME_SEED_DIR/" "$SCENE_RUNTIME_DIR/" 2>/dev/null || true
   else
-    cp -rn "$IMAGE_SCENE_RUNTIME_PLACEHOLDER_DIR/." "$SCENE_RUNTIME_DIR/" 2>/dev/null || true
+    cp -rn "$IMAGE_SCENE_RUNTIME_SEED_DIR/." "$SCENE_RUNTIME_DIR/" 2>/dev/null || true
   fi
   if [ -f "$SCENE_RUNTIME_DIR/index.html" ]; then
-    echo "INFO: Ensured scene runtime placeholder exists at $SCENE_RUNTIME_DIR"
+    echo "INFO: Ensured scene runtime seed exists at $SCENE_RUNTIME_DIR"
   fi
 fi
 
