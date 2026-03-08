@@ -76,7 +76,7 @@
     </div>
 
     <div class="banner info">
-      <b>Scene split:</b> Scene hosting and scene editing now live in the separate <b>OpenClaw Scene</b> add-on.
+      <b>Scene split:</b> Scene hosting and scene editing now live in the separate <b>Kiosk Scene</b> add-on.
       Keep using this add-on for Gateway, terminal, hooks and HA-side control-plane tasks.
     </div>
 
@@ -114,7 +114,7 @@
         Set <code>gateway_public_url</code> in add-on options if the button URL is wrong.
       </div>
       <div class="muted" style="margin-top:6px">
-        Scene runtime and scene editor were moved out into the dedicated <b>OpenClaw Scene</b> add-on.
+        Scene runtime and scene editor were moved out into the dedicated <b>Kiosk Scene</b> add-on.
         If you need <code>/scene/</code> or scene pack editing, open that add-on instead of OpenClaw Assistant.
       </div>
       <div class="muted" style="margin-top:6px">

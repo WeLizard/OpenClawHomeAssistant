@@ -2,7 +2,7 @@
 
 This add-on runs [OpenClaw](https://github.com/openclaw/openclaw) inside Home Assistant OS (HAOS). It provides a fully self-contained environment with a web terminal, gateway server, and all the tools OpenClaw needs — no manual Docker setup required.
 
-> Scene hosting and scene editing now live in the separate **OpenClaw Scene** add-on. OpenClaw Assistant is the gateway/control-plane add-on.
+> Scene hosting and scene editing now live in the separate **Kiosk Scene** add-on. OpenClaw Assistant is the gateway/control-plane add-on.
 
 **Table of Contents**
 

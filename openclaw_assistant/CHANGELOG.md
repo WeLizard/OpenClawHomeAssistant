@@ -2,11 +2,17 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.56-welizard.21] - 2026-03-08
+
+### Changed
+- Rename the separate scene add-on references from `OpenClaw Scene` to neutral `Kiosk Scene`.
+- Keep OpenClaw Assistant focused on gateway/control-plane ownership while the generic scene stack lives under `Kiosk Scene`.
+
 ## [0.5.56-welizard.20] - 2026-03-08
 
 ### Changed
 - Remove scene host/editor ownership from OpenClaw Assistant so it returns to gateway, terminal, hooks and HA-side control-plane duties.
-- Leave `/scene*` delivery to the dedicated `OpenClaw Scene` add-on instead of serving scene runtime or scene packs from this container.
+- Leave `/scene*` delivery to the dedicated `Kiosk Scene` add-on instead of serving scene runtime or scene packs from this container.
 
 ## [0.5.56-welizard.19] - 2026-03-08
 
