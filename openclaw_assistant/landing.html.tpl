@@ -71,6 +71,7 @@
     <!-- ==================== ACTION BUTTONS ==================== -->
     <div class="row" style="margin-bottom:6px">
       <a class="btn" id="gwbtn" href="__GATEWAY_PUBLIC_URL____GW_PUBLIC_URL_PATH__?token=__GATEWAY_TOKEN__" target="_blank" rel="noopener noreferrer">Open Gateway Web UI</a>
+      <a class="btn secondary" href="./scene/" target="_self">Open Scene Host</a>
       <a class="btn secondary" href="./scene-editor/" target="_self">Open Scene Editor</a>
       <a class="btn secondary" href="./terminal/" target="_self">Open Terminal (full page)</a>
       <a class="btn green hidden" id="certBtn" href="" target="_blank" rel="noopener noreferrer">Download CA Certificate</a>
@@ -110,8 +111,12 @@
         Set <code>gateway_public_url</code> in add-on options if the button URL is wrong.
       </div>
       <div class="muted" style="margin-top:6px">
-        <b>Open Scene Editor</b> edits the renderer scene config at <code>/config/www/neiri-scene/scene.default.json</code>.
-        This now lives under OpenClaw Assistant instead of HAOS-kiosk.
+        <b>Open Scene Editor</b> edits the active scene pack config at <code>/config/openclaw-scene/scene-packs/&lt;active-pack&gt;/scene.default.json</code>.
+        Legacy files under <code>/config/www/</code> are only read as migration fallback.
+      </div>
+      <div class="muted" style="margin-top:6px">
+        <b>Open Scene Host</b> is the canonical add-on-owned root for future <code>kiosk-scene</code> delivery.
+        Runtime files live under <code>/config/openclaw-scene/scene-runtime/</code> and packs under <code>/config/openclaw-scene/scene-packs/</code>.
       </div>
       <div class="muted" style="margin-top:6px">
         If the Gateway UI says <b>Unauthorized</b>, get your token from the terminal:<br>

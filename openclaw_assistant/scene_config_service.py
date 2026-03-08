@@ -14,13 +14,15 @@ from urllib.parse import urlsplit
 HOST = os.environ.get("SCENE_EDITOR_HOST", "127.0.0.1")
 PORT = int(os.environ.get("SCENE_EDITOR_PORT", "48098"))
 PATH_PREFIX = "/scene-editor"
-DEFAULT_SCENE_CONFIG_PATH = Path(
-    os.environ.get(
-        "SCENE_EDITOR_CONFIG_PATH",
-        "/config/www/neiri-scene/scene.default.json",
-    )
+SCENE_ROOT = Path(os.environ.get("SCENE_ROOT", "/config/openclaw-scene"))
+PACKS_DIR = Path(os.environ.get("SCENE_PACKS_DIR", str(SCENE_ROOT / "scene-packs")))
+ACTIVE_PACK_FILE = Path(
+    os.environ.get("SCENE_ACTIVE_PACK_FILE", str(SCENE_ROOT / "active-pack.json"))
 )
+DEFAULT_PACK_ID = os.environ.get("SCENE_DEFAULT_PACK_ID", "neiri").strip() or "neiri"
+EXPLICIT_SCENE_CONFIG_PATH = os.environ.get("SCENE_EDITOR_CONFIG_PATH", "").strip()
 LEGACY_SCENE_CONFIG_PATHS = (
+    Path("/config/www/neiri-scene/scene.default.json"),
     Path("/config/www/live2d/neiri-slides.json"),
     Path("/config/haoskiosk/display-config.json"),
 )
@@ -161,9 +163,10 @@ EDITOR_HTML_TEMPLATE = """<!doctype html>
       <textarea id="editor" spellcheck="false"></textarea>
     </section>
     <section class="panel meta">
+      <div>Active pack: <code>__ACTIVE_PACK_ID__</code></div>
       <div>Primary path: <code>__SCENE_EDITOR_CONFIG_PATH__</code></div>
       <div>Legacy read-only fallback: <code>__LEGACY_SCENE_EDITOR_CONFIG_PATHS__</code></div>
-      <div>Saving always writes to the primary path so the renderer and editor share one source of truth.</div>
+      <div>Saving always writes to the primary path so the hosted scene app and editor share one source of truth.</div>
     </section>
   </div>
   <script>
@@ -323,11 +326,44 @@ def normalize_scene_config(config: Any) -> dict[str, Any]:
     return config
 
 
+def load_active_pack_id() -> str:
+    if ACTIVE_PACK_FILE.exists():
+        try:
+            payload = json.loads(ACTIVE_PACK_FILE.read_text(encoding="utf-8"))
+            value = str(payload.get("id", "")).strip()
+            if value:
+                return value
+        except Exception as exc:
+            logging.warning("Failed to read %s: %s", ACTIVE_PACK_FILE, exc)
+    return DEFAULT_PACK_ID
+
+
+def resolve_primary_scene_config_path() -> Path:
+    if EXPLICIT_SCENE_CONFIG_PATH:
+        return Path(EXPLICIT_SCENE_CONFIG_PATH)
+    return PACKS_DIR / load_active_pack_id() / "scene.default.json"
+
+
+def resolve_legacy_scene_config_paths(primary_path: Path) -> tuple[Path, ...]:
+    paths: list[Path] = []
+    for candidate in LEGACY_SCENE_CONFIG_PATHS:
+        if candidate == primary_path or candidate in paths:
+            continue
+        paths.append(candidate)
+    return tuple(paths)
+
+
 def render_editor_html() -> bytes:
-    legacy_paths = ", ".join(str(path) for path in LEGACY_SCENE_CONFIG_PATHS)
+    primary_path = resolve_primary_scene_config_path()
+    legacy_paths = ", ".join(
+        str(path) for path in resolve_legacy_scene_config_paths(primary_path)
+    )
     html_text = EDITOR_HTML_TEMPLATE.replace(
+        "__ACTIVE_PACK_ID__",
+        load_active_pack_id(),
+    ).replace(
         "__SCENE_EDITOR_CONFIG_PATH__",
-        str(DEFAULT_SCENE_CONFIG_PATH),
+        str(primary_path),
     ).replace(
         "__LEGACY_SCENE_EDITOR_CONFIG_PATHS__",
         legacy_paths,
@@ -335,33 +371,37 @@ def render_editor_html() -> bytes:
     return html_text.encode("utf-8")
 
 
-def load_scene_config() -> tuple[dict[str, Any], str | None]:
-    if DEFAULT_SCENE_CONFIG_PATH.exists():
+def load_scene_config() -> tuple[dict[str, Any], Path, str | None]:
+    primary_path = resolve_primary_scene_config_path()
+    if primary_path.exists():
         return normalize_scene_config(
-            json.loads(DEFAULT_SCENE_CONFIG_PATH.read_text(encoding="utf-8"))
-        ), None
+            json.loads(primary_path.read_text(encoding="utf-8"))
+        ), primary_path, None
 
-    for legacy_path in LEGACY_SCENE_CONFIG_PATHS:
+    for legacy_path in resolve_legacy_scene_config_paths(primary_path):
         if legacy_path.exists():
             return normalize_scene_config(
                 json.loads(legacy_path.read_text(encoding="utf-8"))
-            ), str(legacy_path)
+            ), primary_path, str(legacy_path)
 
-    return normalize_scene_config(json.loads(json.dumps(DEFAULT_SCENE_CONFIG))), None
-
-
-def save_scene_config(config: Any) -> dict[str, Any]:
-    normalized = normalize_scene_config(config)
-    DEFAULT_SCENE_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = DEFAULT_SCENE_CONFIG_PATH.with_suffix(
-        DEFAULT_SCENE_CONFIG_PATH.suffix + ".tmp"
+    return (
+        normalize_scene_config(json.loads(json.dumps(DEFAULT_SCENE_CONFIG))),
+        primary_path,
+        None,
     )
+
+
+def save_scene_config(config: Any) -> tuple[dict[str, Any], Path]:
+    normalized = normalize_scene_config(config)
+    primary_path = resolve_primary_scene_config_path()
+    primary_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = primary_path.with_suffix(primary_path.suffix + ".tmp")
     temp_path.write_text(
         json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    os.replace(temp_path, DEFAULT_SCENE_CONFIG_PATH)
-    return normalized
+    os.replace(temp_path, primary_path)
+    return normalized, primary_path
 
 
 class SceneConfigHandler(BaseHTTPRequestHandler):
@@ -397,19 +437,27 @@ class SceneConfigHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
         if path == "/health":
-            self.send_json({"status": "ok", "path": str(DEFAULT_SCENE_CONFIG_PATH)})
+            primary_path = resolve_primary_scene_config_path()
+            self.send_json(
+                {
+                    "status": "ok",
+                    "path": str(primary_path),
+                    "activePackId": load_active_pack_id(),
+                }
+            )
             return
         if path in (PATH_PREFIX, PATH_PREFIX + "/"):
             self.send_html(render_editor_html())
             return
         if path == PATH_PREFIX + "/api/config":
             try:
-                config, loaded_from = load_scene_config()
+                config, primary_path, loaded_from = load_scene_config()
                 self.send_json(
                     {
                         "success": True,
                         "config": config,
-                        "path": str(DEFAULT_SCENE_CONFIG_PATH),
+                        "path": str(primary_path),
+                        "packId": load_active_pack_id(),
                         "loadedFrom": loaded_from,
                     }
                 )
@@ -443,12 +491,13 @@ class SceneConfigHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            config = save_scene_config(payload)
+            config, primary_path = save_scene_config(payload)
             self.send_json(
                 {
                     "success": True,
                     "config": config,
-                    "path": str(DEFAULT_SCENE_CONFIG_PATH),
+                    "path": str(primary_path),
+                    "packId": load_active_pack_id(),
                 }
             )
         except ValueError as exc:
@@ -475,7 +524,7 @@ def main() -> None:
         "Starting scene config service on http://%s:%s for %s",
         HOST,
         PORT,
-        DEFAULT_SCENE_CONFIG_PATH,
+        resolve_primary_scene_config_path(),
     )
     try:
         server.serve_forever()

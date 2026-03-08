@@ -34,7 +34,8 @@ The add-on container runs three services:
 
 When you open the add-on page in Home Assistant, nginx serves a landing page with:
 - An **Open Gateway Web UI** button (opens in a new tab to avoid WebSocket issues with Ingress)
-- An **Open Scene Editor** button for the renderer scene config at `/config/www/neiri-scene/scene.default.json`
+- An **Open Scene Editor** button for the active scene pack config at `/config/openclaw-scene/scene-packs/<active-pack>/scene.default.json`
+- An **Open Scene Host** button for the canonical add-on-owned `kiosk-scene` app root
 - An embedded **terminal** for running commands
 
 ### Key directories
@@ -44,6 +45,7 @@ When you open the add-on page in Home Assistant, nginx serves a landing page wit
 | `/config/` | Yes | All user data — survives add-on updates and rebuilds |
 | `/config/.openclaw/` | Yes | OpenClaw configuration (`openclaw.json`), skills, agent data |
 | `/config/clawd/` | Yes | Agent workspace (ClawHub-installed skills, files, workspace hooks) |
+| `/config/openclaw-scene/` | Yes | Canonical hosted scene root: runtime bundle, packs, active-pack selector |
 | `/config/.node_global/` | Yes | User-installed npm packages (skills installed via dashboard) |
 | `/config/secrets/` | Yes | Tokens (e.g., `homeassistant.token`) |
 | `/config/keys/` | Yes | SSH keys (e.g., router SSH key) |
@@ -76,8 +78,9 @@ When the add-on starts for the first time, it automatically:
 1. Creates persistent directories under `/config/`
 2. Generates a minimal `openclaw.json` with a random gateway auth token
 3. Seeds built-in workspace hooks (including `neiri-avatar-state`) into `/config/clawd/hooks/` without overwriting existing user copies
-4. Syncs built-in skills to persistent storage
-5. Starts the gateway, terminal, and nginx
+4. Seeds a placeholder scene runtime into `/config/openclaw-scene/scene-runtime/` and initializes `/config/openclaw-scene/active-pack.json`
+5. Syncs built-in skills to persistent storage
+6. Starts the gateway, terminal, scene services, and nginx
 
 ### Step 1 — Run onboarding
 

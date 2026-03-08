@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenClaw Scene Host</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111a;
+      --paper: #102131;
+      --line: rgba(255,255,255,0.1);
+      --text: #e9f2f7;
+      --muted: #9db2c3;
+      --warn: #efb366;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 15px/1.5 "Aptos", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(104,195,163,0.14), transparent 36%),
+        linear-gradient(180deg, #07111a 0%, #0d1b29 100%);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(900px, 100%);
+      display: grid;
+      gap: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+    }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 30px; letter-spacing: -0.04em; }
+    h2 { font-size: 16px; }
+    p { color: var(--muted); }
+    .banner {
+      border: 1px solid rgba(239,179,102,0.35);
+      background: rgba(239,179,102,0.1);
+      color: #ffddae;
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .panel {
+      background: rgba(0,0,0,0.12);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    code, pre {
+      font-family: "Cascadia Code", "Consolas", monospace;
+    }
+    pre {
+      margin: 0;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #d8e4ed;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>Scene Host Ready</h1>
+      <p>OpenClaw Assistant now owns a dedicated scene runtime root and pack root.</p>
+    </header>
+
+    <section class="banner">
+      This is a placeholder runtime. Replace <code>/config/openclaw-scene/scene-runtime/</code>
+      with a real <code>kiosk-scene</code> build and drop packs into
+      <code>/config/openclaw-scene/scene-packs/&lt;pack-id&gt;/</code>.
+    </section>
+
+    <section class="panel">
+      <h2>Bootstrap</h2>
+      <pre id="bootstrap">Loading /scene-api/bootstrap ...</pre>
+    </section>
+  </main>
+  <script>
+    (async function () {
+      const el = document.getElementById('bootstrap');
+      try {
+        const response = await fetch('/scene-api/bootstrap', { cache: 'no-store' });
+        const data = await response.json();
+        el.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        el.textContent = String(error);
+      }
+    })();
+  </script>
+</body>
+</html>
