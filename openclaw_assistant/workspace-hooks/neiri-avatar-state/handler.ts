@@ -1,16 +1,70 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const EXTRA_STATE_FILES = (process.env.NEIRI_STATE_FILES ?? "")
-  .split(",")
-  .map((value) => value.trim())
-  .filter(Boolean);
-const STATE_FILES = [
+type AssistantHaEntityMap = {
+  online: string;
+  busy: string;
+  status: string;
+  message: string;
+  source: string;
+  updatedAt: string;
+  emotion: string;
+  activity: string;
+  cue: string;
+  speaking: string;
+  intensity: string;
+  motion: string;
+  revision: string;
+};
+
+type AssistantHaControlEntityMap = {
+  viewPreset?: string;
+  pageMode?: string;
+  pageTarget?: string;
+  pageUntil?: string;
+  cue?: string;
+  emotion?: string;
+  motion?: string;
+  cueUntil?: string;
+  revision?: string;
+};
+
+type PersistedControlState = {
+  version: 1;
+  revision: number;
+  viewPreset: "full" | "torso" | "head" | null;
+  page: {
+    mode: "auto" | "pinned";
+    target: string | null;
+    until: string | null;
+  };
+  cue: {
+    cue: string | null;
+    emotion: string | null;
+    motion: string | null;
+    until: string | null;
+  };
+};
+
+const DEFAULT_STATE_FILES = [
   "/config/www/live2d/neiri-state.json",
   "/homeassistant/www/live2d/neiri-state.json",
   "/data/homeassistant/www/live2d/neiri-state.json",
   "/mnt/data/supervisor/homeassistant/www/live2d/neiri-state.json",
-  ...EXTRA_STATE_FILES,
+];
+const STATE_FILES = [
+  ...DEFAULT_STATE_FILES,
+  ...readCsvEnv("OPENCLAW_ASSISTANT_STATE_FILES", "NEIRI_STATE_FILES"),
+];
+const DEFAULT_CONTROL_FILES = [
+  "/config/www/live2d/neiri-control.json",
+  "/homeassistant/www/live2d/neiri-control.json",
+  "/data/homeassistant/www/live2d/neiri-control.json",
+  "/mnt/data/supervisor/homeassistant/www/live2d/neiri-control.json",
+];
+const CONTROL_FILES = [
+  ...DEFAULT_CONTROL_FILES,
+  ...readCsvEnv("OPENCLAW_ASSISTANT_CONTROL_FILES", "NEIRI_CONTROL_FILES"),
 ];
 const SESSION_STORE_FILES = [
   "/config/.openclaw/agents/main/sessions/sessions.json",
@@ -22,8 +76,14 @@ const TRANSCRIPT_TAIL_BYTES = 262144;
 const SPEECH_SETTLE_MIN_MS = 8000;
 const SPEECH_SETTLE_MAX_MS = 22000;
 const SPEECH_SETTLE_PER_CHAR_MS = 85;
-const ASSISTANT_NAME = "Нейри";
-const HA_BASE_URL_ENV = process.env.NEIRI_HA_URL?.trim() || "";
+const ASSISTANT_NAME = cleanText(
+  process.env.OPENCLAW_ASSISTANT_NAME ?? process.env.NEIRI_ASSISTANT_NAME ?? "Нейри",
+  40,
+) || "Нейри";
+const HA_BASE_URL_ENV = cleanText(
+  process.env.OPENCLAW_ASSISTANT_HA_URL ?? process.env.NEIRI_HA_URL,
+  1024,
+);
 const HA_BASE_URL_FALLBACKS = [
   "http://homeassistant:8123",
   "http://homeassistant.local:8123",
@@ -31,7 +91,7 @@ const HA_BASE_URL_FALLBACKS = [
 ];
 const HA_TOKEN_FILE = "/config/secrets/homeassistant.token";
 const HA_TIMEOUT_MS = 5000;
-const HA_ENTITIES = {
+const DEFAULT_HA_ENTITIES: AssistantHaEntityMap = {
   online: "input_boolean.neiri_online",
   busy: "input_boolean.neiri_busy",
   status: "input_text.neiri_status",
@@ -39,8 +99,37 @@ const HA_ENTITIES = {
   source: "input_text.neiri_source",
   updatedAt: "input_text.neiri_updated_at",
   emotion: "input_text.neiri_emotion",
+  activity: "input_text.neiri_activity",
+  cue: "input_text.neiri_cue",
+  speaking: "input_boolean.neiri_speaking",
+  intensity: "input_number.neiri_intensity",
   motion: "input_text.neiri_motion",
   revision: "input_number.neiri_revision",
+};
+const HA_ENTITIES = resolveHaEntities();
+const DEFAULT_HA_CONTROL_ENTITIES: AssistantHaControlEntityMap = {
+  viewPreset: "input_text.neiri_view_preset",
+  pageMode: "input_text.neiri_page_mode",
+  pageTarget: "input_text.neiri_page_target",
+  pageUntil: "input_text.neiri_page_until",
+  revision: "input_number.neiri_control_revision",
+};
+const HA_CONTROL_ENTITIES = resolveHaControlEntities();
+const DEFAULT_CONTROL_STATE: PersistedControlState = {
+  version: 1,
+  revision: 0,
+  viewPreset: null,
+  page: {
+    mode: "auto",
+    target: null,
+    until: null,
+  },
+  cue: {
+    cue: null,
+    emotion: null,
+    motion: null,
+    until: null,
+  },
 };
 
 let haTokenPromise: Promise<string> | null = null;
@@ -51,6 +140,113 @@ let transcriptPrimed = false;
 let lastTranscriptSessionFile = "";
 let lastTranscriptSignature = "";
 let speechSettleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function readCsvEnv(...names: string[]) {
+  return names
+    .map((name) => process.env[name] ?? "")
+    .flatMap((raw) => raw.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function readNamedEnv(...names: string[]) {
+  for (const name of names) {
+    const value = cleanText(process.env[name], 4096);
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function sanitizeIntensity(value: unknown) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return clampNumber(numeric, 0, 1);
+}
+
+function sanitizeEntityMapOverride(value: unknown) {
+  if (!isObjectRecord(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entryValue]) => [cleanText(key, 32), cleanText(entryValue, 255)])
+      .filter(([key, entryValue]) => key && entryValue),
+  );
+}
+
+function resolveHaEntities(): AssistantHaEntityMap {
+  const jsonOverrideRaw = readNamedEnv("OPENCLAW_ASSISTANT_HA_ENTITY_MAP", "NEIRI_HA_ENTITY_MAP");
+  let jsonOverride: Record<string, string> = {};
+  if (jsonOverrideRaw) {
+    try {
+      jsonOverride = sanitizeEntityMapOverride(JSON.parse(jsonOverrideRaw));
+    } catch {
+      jsonOverride = {};
+    }
+  }
+
+  const fieldEnv = (field: keyof AssistantHaEntityMap) =>
+    readNamedEnv(
+      `OPENCLAW_ASSISTANT_HA_ENTITY_${String(field).toUpperCase()}`,
+      `NEIRI_HA_ENTITY_${String(field).toUpperCase()}`,
+    );
+
+  return {
+    online: fieldEnv("online") || jsonOverride.online || DEFAULT_HA_ENTITIES.online,
+    busy: fieldEnv("busy") || jsonOverride.busy || DEFAULT_HA_ENTITIES.busy,
+    status: fieldEnv("status") || jsonOverride.status || DEFAULT_HA_ENTITIES.status,
+    message: fieldEnv("message") || jsonOverride.message || DEFAULT_HA_ENTITIES.message,
+    source: fieldEnv("source") || jsonOverride.source || DEFAULT_HA_ENTITIES.source,
+    updatedAt: fieldEnv("updatedAt") || jsonOverride.updatedAt || DEFAULT_HA_ENTITIES.updatedAt,
+    emotion: fieldEnv("emotion") || jsonOverride.emotion || DEFAULT_HA_ENTITIES.emotion,
+    activity: fieldEnv("activity") || jsonOverride.activity || DEFAULT_HA_ENTITIES.activity,
+    cue: fieldEnv("cue") || jsonOverride.cue || DEFAULT_HA_ENTITIES.cue,
+    speaking: fieldEnv("speaking") || jsonOverride.speaking || DEFAULT_HA_ENTITIES.speaking,
+    intensity: fieldEnv("intensity") || jsonOverride.intensity || DEFAULT_HA_ENTITIES.intensity,
+    motion: fieldEnv("motion") || jsonOverride.motion || DEFAULT_HA_ENTITIES.motion,
+    revision: fieldEnv("revision") || jsonOverride.revision || DEFAULT_HA_ENTITIES.revision,
+  };
+}
+
+function resolveHaControlEntities(): AssistantHaControlEntityMap {
+  const jsonOverrideRaw = readNamedEnv(
+    "OPENCLAW_ASSISTANT_HA_CONTROL_ENTITY_MAP",
+    "NEIRI_HA_CONTROL_ENTITY_MAP",
+  );
+  let jsonOverride: Record<string, string> = {};
+  if (jsonOverrideRaw) {
+    try {
+      jsonOverride = sanitizeEntityMapOverride(JSON.parse(jsonOverrideRaw));
+    } catch {
+      jsonOverride = {};
+    }
+  }
+
+  const fieldEnv = (field: keyof AssistantHaControlEntityMap) =>
+    readNamedEnv(
+      `OPENCLAW_ASSISTANT_HA_CONTROL_ENTITY_${String(field).toUpperCase()}`,
+      `NEIRI_HA_CONTROL_ENTITY_${String(field).toUpperCase()}`,
+    );
+
+  return {
+    viewPreset: fieldEnv("viewPreset") || jsonOverride.viewPreset || DEFAULT_HA_CONTROL_ENTITIES.viewPreset,
+    pageMode: fieldEnv("pageMode") || jsonOverride.pageMode || DEFAULT_HA_CONTROL_ENTITIES.pageMode,
+    pageTarget: fieldEnv("pageTarget") || jsonOverride.pageTarget || DEFAULT_HA_CONTROL_ENTITIES.pageTarget,
+    pageUntil: fieldEnv("pageUntil") || jsonOverride.pageUntil || DEFAULT_HA_CONTROL_ENTITIES.pageUntil,
+    cue: fieldEnv("cue") || jsonOverride.cue || DEFAULT_HA_CONTROL_ENTITIES.cue,
+    emotion: fieldEnv("emotion") || jsonOverride.emotion || DEFAULT_HA_CONTROL_ENTITIES.emotion,
+    motion: fieldEnv("motion") || jsonOverride.motion || DEFAULT_HA_CONTROL_ENTITIES.motion,
+    cueUntil: fieldEnv("cueUntil") || jsonOverride.cueUntil || DEFAULT_HA_CONTROL_ENTITIES.cueUntil,
+    revision: fieldEnv("revision") || jsonOverride.revision || DEFAULT_HA_CONTROL_ENTITIES.revision,
+  };
+}
 
 function clearSpeechSettleTimer() {
   if (speechSettleTimer) {
@@ -80,6 +276,10 @@ function uniqueStateFiles() {
   return Array.from(new Set(STATE_FILES.map((file) => path.normalize(file))));
 }
 
+function uniqueControlFiles() {
+  return Array.from(new Set(CONTROL_FILES.map((file) => path.normalize(file))));
+}
+
 function uniqueSessionStoreFiles() {
   return Array.from(new Set(SESSION_STORE_FILES.map((file) => path.normalize(file))));
 }
@@ -88,6 +288,54 @@ function uniqueHaBaseUrls() {
   return Array.from(
     new Set([resolvedHaBaseUrl, HA_BASE_URL_ENV, ...HA_BASE_URL_FALLBACKS].filter(Boolean)),
   );
+}
+
+function normalizeViewPreset(value: unknown): PersistedControlState["viewPreset"] {
+  const normalized = cleanText(value, 16).toLowerCase();
+  if (normalized === "full" || normalized === "torso" || normalized === "head") {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeControlMode(value: unknown): PersistedControlState["page"]["mode"] {
+  return cleanText(value, 16).toLowerCase() === "pinned" ? "pinned" : "auto";
+}
+
+function getControlRevision(control: unknown) {
+  const revision = Number(isObjectRecord(control) ? control.revision : undefined);
+  return Number.isFinite(revision) && revision >= 0 ? revision : 0;
+}
+
+function normalizePersistedControlState(value: unknown): PersistedControlState {
+  const control = isObjectRecord(value) ? value : {};
+  const page = isObjectRecord(control.page) ? control.page : {};
+  const cue = isObjectRecord(control.cue) ? control.cue : {};
+  const pageTarget = cleanText(page.target, 40) || null;
+  const pageMode = normalizeControlMode(page.mode);
+
+  return {
+    version: 1,
+    revision: getControlRevision(control),
+    viewPreset: normalizeViewPreset(control.viewPreset),
+    page: pageMode === "pinned" && pageTarget
+      ? {
+          mode: "pinned",
+          target: pageTarget,
+          until: cleanText(page.until, 64) || null,
+        }
+      : {
+          mode: "auto",
+          target: null,
+          until: null,
+        },
+    cue: {
+      cue: cleanText(cue.cue, 32) || null,
+      emotion: cleanText(cue.emotion, 32) || null,
+      motion: cleanText(cue.motion, 32) || null,
+      until: cleanText(cue.until, 64) || null,
+    },
+  };
 }
 
 function createRuntimeEvent(type: string, action: string) {
@@ -120,6 +368,16 @@ async function readState() {
   }
   candidates.sort((a, b) => getRevision(b) - getRevision(a));
   return candidates[0] || {};
+}
+
+async function readControl() {
+  const controls = await Promise.all(uniqueControlFiles().map((filePath) => readJson(filePath)));
+  const candidates = controls.filter((control) => control && typeof control === "object");
+  if (candidates.length === 0) {
+    return { ...DEFAULT_CONTROL_STATE };
+  }
+  candidates.sort((a, b) => getControlRevision(b) - getControlRevision(a));
+  return normalizePersistedControlState(candidates[0]);
 }
 
 function cleanText(value: unknown, maxLength = 200) {
@@ -205,7 +463,7 @@ function inferAvatarCue(
   const emphatic = /[!！]{2,}/.test(text);
 
   if (options?.busy) {
-    return { motion: "think", emotion: "think" };
+    return { cue: "think", motion: "think", emotion: "think", activity: "thinking", speaking: false, intensity: 0.45 };
   }
 
   if (
@@ -224,62 +482,62 @@ function inferAvatarCue(
       "сбой",
     ])
   ) {
-    return { motion: "error", emotion: "error" };
+    return { cue: "error", motion: "error", emotion: "error", activity: "error", speaking: false, intensity: 0.9 };
   }
 
   if (containsAny(full, ["предупреж", "внимание", "осторож", "ай-яй", "ай ай", "аккуратн"])) {
-    return { motion: "warning", emotion: "warning" };
+    return { cue: "warning", motion: "warning", emotion: "warning", activity: "speaking", speaking: true, intensity: 0.72 };
   }
 
   if (containsAny(full, ["не уверен", "растер", "пута", "непонят", "confused", "unknown", "хм..."])) {
-    return { motion: "confused", emotion: "confused" };
+    return { cue: "confused", motion: "confused", emotion: "confused", activity: "speaking", speaking: true, intensity: 0.62 };
   }
 
   if (containsAny(full, ["не буду", "отказываюсь", "нельзя", "запрещено", "не могу помочь с этим"])) {
-    return { motion: "refuse", emotion: "refuse" };
+    return { cue: "refuse", motion: "refuse", emotion: "refuse", activity: "speaking", speaking: true, intensity: 0.74 };
   }
 
   if (containsAny(full, ["спасибо", "готово", "сделано", "получилось", "умнич", "подтверждаю", "успех"])) {
-    return { motion: "approve", emotion: "approve" };
+    return { cue: "approve", motion: "approve", emotion: "approve", activity: "speaking", speaking: true, intensity: 0.66 };
   }
 
   if (containsAny(full, ["как и ожидал", "я же говорила", "предсказуемо", "понятно же"])) {
-    return { motion: "reply_dry", emotion: "reply_dry" };
+    return { cue: "reply_dry", motion: "reply_dry", emotion: "reply_dry", activity: "speaking", speaking: true, intensity: 0.54 };
   }
 
   if (containsAny(full, ["думаю", "анализир", "считаю", "проверяю", "ищу", "подожди"])) {
-    return { motion: "think", emotion: "think" };
+    return { cue: "think", motion: "think", emotion: "think", activity: "thinking", speaking: false, intensity: 0.45 };
   }
 
   if (containsAny(full, ["ой", "ого", "вау", "неожиданно", "удивительно"])) {
-    return { motion: "surprise", emotion: "surprise" };
+    return { cue: "surprise", motion: "surprise", emotion: "surprise", activity: "speaking", speaking: true, intensity: 0.82 };
   }
 
   if (containsAny(full, ["мяу", "ня", "милаш", "милота", "няш", "обнял", "обним", "лапушка", "котик"])) {
-    return { motion: "cute", emotion: "cute" };
+    return { cue: "cute", motion: "cute", emotion: "cute", activity: "speaking", speaking: true, intensity: 0.68 };
   }
 
   if (containsAny(full, ["извини", "прости", "смущ", "стесня", "неудобно"])) {
-    return { motion: "shy", emotion: "shy" };
+    return { cue: "shy", motion: "shy", emotion: "shy", activity: "speaking", speaking: true, intensity: 0.52 };
   }
 
   if (containsAny(full, ["ура", "класс", "супер", "отлично", "замечательно", "круто"]) || emphatic) {
-    return { motion: "reply_excited", emotion: "reply_excited" };
+    return { cue: "reply_excited", motion: "reply_excited", emotion: "reply_excited", activity: "speaking", speaking: true, intensity: 0.8 };
   }
 
   if (text.includes("?")) {
-    return { motion: "reply_soft", emotion: "reply_soft" };
+    return { cue: "reply_soft", motion: "reply_soft", emotion: "reply_soft", activity: "speaking", speaking: true, intensity: 0.58 };
   }
 
   if (text.length > 0 && text.length <= 60) {
-    return { motion: "reply_soft", emotion: "reply_soft" };
+    return { cue: "reply_soft", motion: "reply_soft", emotion: "reply_soft", activity: "speaking", speaking: true, intensity: 0.56 };
   }
 
   if (text.length > 0) {
-    return { motion: "reply", emotion: "reply" };
+    return { cue: "reply", motion: "reply", emotion: "reply", activity: "speaking", speaking: true, intensity: 0.64 };
   }
 
-  return { motion: "calm", emotion: "calm" };
+  return { cue: "calm", motion: "calm", emotion: "calm", activity: "idle", speaking: false, intensity: 0.12 };
 }
 
 function getRevision(state: unknown) {
@@ -295,6 +553,14 @@ async function writeStateToFile(filePath: string, nextState: Record<string, unkn
   await fs.rename(tempFile, filePath);
 }
 
+async function writeControlToFile(filePath: string, nextControl: PersistedControlState) {
+  const controlDir = path.dirname(filePath);
+  await fs.mkdir(controlDir, { recursive: true });
+  const tempFile = path.join(controlDir, `.neiri-control.${process.pid}.${Date.now()}.tmp`);
+  await fs.writeFile(tempFile, `${JSON.stringify(nextControl, null, 2)}\n`, "utf-8");
+  await fs.rename(tempFile, filePath);
+}
+
 async function writeState(nextState: Record<string, unknown>) {
   const targets = uniqueStateFiles();
   const results = await Promise.allSettled(
@@ -306,10 +572,28 @@ async function writeState(nextState: Record<string, unknown>) {
     .filter(Boolean)
     .join("; ");
   if (successCount === 0) {
-    throw new Error(failures || "Failed to write neiri state to all targets");
+    throw new Error(failures || "Failed to write assistant state to all targets");
   }
   if (failures) {
     console.warn(`[neiri-avatar-state] state write partial failure: ${failures}`);
+  }
+}
+
+async function writeControl(nextControl: PersistedControlState) {
+  const targets = uniqueControlFiles();
+  const results = await Promise.allSettled(
+    targets.map((filePath) => writeControlToFile(filePath, nextControl)),
+  );
+  const successCount = results.filter((entry) => entry.status === "fulfilled").length;
+  const failures = results
+    .map((entry, index) => (entry.status === "rejected" ? `${targets[index]}: ${String(entry.reason)}` : null))
+    .filter(Boolean)
+    .join("; ");
+  if (successCount === 0) {
+    throw new Error(failures || "Failed to write assistant control to all targets");
+  }
+  if (failures) {
+    console.warn(`[neiri-avatar-state] control write partial failure: ${failures}`);
   }
 }
 
@@ -374,6 +658,7 @@ async function publishToHomeAssistant(state: Record<string, unknown>) {
   const tasks = [
     callHaService("input_boolean", state.online ? "turn_on" : "turn_off", { entity_id: HA_ENTITIES.online }),
     callHaService("input_boolean", state.busy ? "turn_on" : "turn_off", { entity_id: HA_ENTITIES.busy }),
+    callHaService("input_boolean", state.speaking ? "turn_on" : "turn_off", { entity_id: HA_ENTITIES.speaking }),
     callHaService("input_text", "set_value", {
       entity_id: HA_ENTITIES.status,
       value: cleanText(state.status, 255),
@@ -395,8 +680,20 @@ async function publishToHomeAssistant(state: Record<string, unknown>) {
       value: cleanText(state.emotion, 64),
     }),
     callHaService("input_text", "set_value", {
+      entity_id: HA_ENTITIES.activity,
+      value: cleanText(state.activity, 64),
+    }),
+    callHaService("input_text", "set_value", {
+      entity_id: HA_ENTITIES.cue,
+      value: cleanText(state.cue, 64),
+    }),
+    callHaService("input_text", "set_value", {
       entity_id: HA_ENTITIES.motion,
       value: cleanText(state.motion, 64),
+    }),
+    callHaService("input_number", "set_value", {
+      entity_id: HA_ENTITIES.intensity,
+      value: sanitizeIntensity(state.intensity) ?? 0,
     }),
     callHaService("input_number", "set_value", {
       entity_id: HA_ENTITIES.revision,
@@ -414,6 +711,73 @@ async function publishToHomeAssistant(state: Record<string, unknown>) {
   }
 }
 
+async function publishControlToHomeAssistant(control: PersistedControlState) {
+  const tasks = [];
+  if (HA_CONTROL_ENTITIES.viewPreset) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.viewPreset,
+      value: cleanText(control.viewPreset, 32),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.pageMode) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.pageMode,
+      value: cleanText(control.page.mode, 32),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.pageTarget) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.pageTarget,
+      value: cleanText(control.page.target, 64),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.pageUntil) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.pageUntil,
+      value: cleanText(control.page.until, 64),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.cue) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.cue,
+      value: cleanText(control.cue.cue, 64),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.emotion) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.emotion,
+      value: cleanText(control.cue.emotion, 64),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.motion) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.motion,
+      value: cleanText(control.cue.motion, 64),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.cueUntil) {
+    tasks.push(callHaService("input_text", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.cueUntil,
+      value: cleanText(control.cue.until, 64),
+    }));
+  }
+  if (HA_CONTROL_ENTITIES.revision) {
+    tasks.push(callHaService("input_number", "set_value", {
+      entity_id: HA_CONTROL_ENTITIES.revision,
+      value: getControlRevision(control),
+    }));
+  }
+
+  const results = await Promise.allSettled(tasks);
+  const failures = results
+    .map((result) => (result.status === "rejected" ? String(result.reason) : null))
+    .filter(Boolean);
+
+  if (failures.length > 0) {
+    console.warn(`[neiri-avatar-state] HA control publish partial failure: ${failures.join("; ")}`);
+  }
+}
+
 async function persistState(
   event: { type: string; action: string; timestamp?: Date } | null,
   patch: Record<string, unknown>,
@@ -421,6 +785,7 @@ async function persistState(
   const previous = await readState();
   const eventKey = event ? `${event.type}:${event.action}` : "runtime:update";
   const nextState = {
+    version: 1,
     assistant: ASSISTANT_NAME,
     online: patch.online ?? (typeof previous.online === "boolean" ? previous.online : true),
     busy: patch.busy ?? Boolean(previous.busy),
@@ -436,6 +801,10 @@ async function persistState(
         ? event.timestamp.toISOString()
         : new Date().toISOString(),
     emotion: cleanText(patch.emotion, 32) || cleanText(previous.emotion, 32),
+    activity: cleanText(patch.activity, 32) || cleanText(previous.activity, 32),
+    cue: cleanText(patch.cue, 32) || cleanText(previous.cue, 32),
+    intensity: sanitizeIntensity(patch.intensity ?? previous.intensity),
+    speaking: typeof patch.speaking === "boolean" ? patch.speaking : Boolean(previous.speaking),
     motion: cleanText(patch.motion, 32) || cleanText(previous.motion, 32),
     revision: getRevision(previous) + 1,
     event: eventKey,
@@ -446,6 +815,83 @@ async function persistState(
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[neiri-avatar-state] ${message}`);
   });
+}
+
+function controlStateSignature(control: PersistedControlState) {
+  return JSON.stringify({
+    viewPreset: control.viewPreset,
+    page: control.page,
+    cue: control.cue,
+  });
+}
+
+async function persistControl(
+  patch: {
+    viewPreset?: PersistedControlState["viewPreset"];
+    page?: Partial<PersistedControlState["page"]>;
+    cue?: Partial<PersistedControlState["cue"]>;
+  },
+) {
+  const previous = normalizePersistedControlState(await readControl());
+
+  let nextViewPreset = previous.viewPreset;
+  if (patch.viewPreset !== undefined) {
+    nextViewPreset = normalizeViewPreset(patch.viewPreset);
+  }
+
+  let nextPage = { ...previous.page };
+  if (patch.page) {
+    const requestedMode = normalizeControlMode(patch.page.mode ?? previous.page.mode);
+    const requestedTarget = cleanText(
+      patch.page.target !== undefined ? patch.page.target : previous.page.target,
+      40,
+    ) || null;
+    const requestedUntil = cleanText(
+      patch.page.until !== undefined ? patch.page.until : previous.page.until,
+      64,
+    ) || null;
+    nextPage = requestedMode === "pinned" && requestedTarget
+      ? {
+          mode: "pinned",
+          target: requestedTarget,
+          until: requestedUntil,
+        }
+      : {
+          mode: "auto",
+          target: null,
+          until: null,
+        };
+  }
+
+  let nextCue = { ...previous.cue };
+  if (patch.cue) {
+    nextCue = {
+      cue: cleanText(patch.cue.cue !== undefined ? patch.cue.cue : previous.cue.cue, 32) || null,
+      emotion: cleanText(patch.cue.emotion !== undefined ? patch.cue.emotion : previous.cue.emotion, 32) || null,
+      motion: cleanText(patch.cue.motion !== undefined ? patch.cue.motion : previous.cue.motion, 32) || null,
+      until: cleanText(patch.cue.until !== undefined ? patch.cue.until : previous.cue.until, 64) || null,
+    };
+  }
+
+  const nextControl: PersistedControlState = {
+    version: 1,
+    revision: previous.revision,
+    viewPreset: nextViewPreset,
+    page: nextPage,
+    cue: nextCue,
+  };
+
+  if (controlStateSignature(previous) === controlStateSignature(nextControl)) {
+    return previous;
+  }
+
+  nextControl.revision = previous.revision + 1;
+  await writeControl(nextControl);
+  await publishControlToHomeAssistant(nextControl).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[neiri-avatar-state] ${message}`);
+  });
+  return nextControl;
 }
 
 async function settleSpeechState(reason: string) {
@@ -467,6 +913,10 @@ async function settleSpeechState(reason: string) {
     message: "",
     source: cleanText(latest.source, 32) || "system",
     emotion: "calm",
+    activity: "idle",
+    cue: "idle",
+    intensity: 0.12,
+    speaking: false,
     motion: "idle_soft",
   });
 }
@@ -527,20 +977,71 @@ function extractTextFromContent(content: unknown): string {
 
 function parseAvatarDirectives(value: unknown) {
   const baseText = typeof value === "string" ? sanitizeAvatarText(value, 240) : extractTextFromContent(value);
-  const result = { text: sanitizeAvatarText(baseText, 220), emotion: "", motion: "" };
+  const result = {
+    text: sanitizeAvatarText(baseText, 220),
+    emotion: "",
+    activity: "",
+    cue: "",
+    motion: "",
+    page: "",
+    viewPreset: "",
+  };
   if (!result.text) {
     return result;
   }
-  const found = { emotion: "", motion: "" };
-  const cleaned = result.text.replace(/\[(emotion|motion)\s*:\s*([a-z0-9_-]+)\]/gi, (_, kind, cue) => {
+  const found = { emotion: "", activity: "", cue: "", motion: "", page: "", viewPreset: "" };
+  const cleaned = result.text.replace(/\[(emotion|activity|cue|motion|page|preset|view|size)\s*:\s*([a-z0-9_-]+)\]/gi, (_, kind, cue) => {
     const key = cleanText(kind, 16).toLowerCase();
     const normalizedCue = cleanText(cue, 32).toLowerCase();
-    if ((key === "emotion" || key === "motion") && normalizedCue) {
-      found[key] = normalizedCue;
+    if ((key === "emotion" || key === "activity" || key === "cue" || key === "motion") && normalizedCue) {
+      found[key as "emotion" | "activity" | "cue" | "motion"] = normalizedCue;
+    } else if (key === "page" && normalizedCue) {
+      found.page = normalizedCue;
+    } else if ((key === "preset" || key === "view" || key === "size") && normalizedCue) {
+      found.viewPreset = normalizedCue;
     }
     return " ";
   });
-  return { text: sanitizeAvatarText(cleaned, 220), emotion: found.emotion, motion: found.motion };
+  return {
+    text: sanitizeAvatarText(cleaned, 220),
+    emotion: found.emotion,
+    activity: found.activity,
+    cue: found.cue,
+    motion: found.motion,
+    page: found.page,
+    viewPreset: found.viewPreset,
+  };
+}
+
+function resolveControlPatchFromDirectives(parsed: ReturnType<typeof parseAvatarDirectives>) {
+  const patch: {
+    viewPreset?: PersistedControlState["viewPreset"];
+    page?: Partial<PersistedControlState["page"]>;
+  } = {};
+
+  const viewPreset = normalizeViewPreset(parsed.viewPreset);
+  if (viewPreset) {
+    patch.viewPreset = viewPreset;
+  }
+
+  const pageDirective = cleanText(parsed.page, 32).toLowerCase();
+  if (pageDirective) {
+    if (["auto", "none", "reset", "default", "rotation"].includes(pageDirective)) {
+      patch.page = {
+        mode: "auto",
+        target: null,
+        until: null,
+      };
+    } else {
+      patch.page = {
+        mode: "pinned",
+        target: pageDirective,
+        until: null,
+      };
+    }
+  }
+
+  return patch;
 }
 
 async function resolveMainSessionFile() {
@@ -700,8 +1201,13 @@ async function pollTranscriptUpdates() {
       message: nextMessage,
       source: cleanText(previous.source, 32) || "system",
       emotion: parsed.emotion || inferred.emotion,
+      activity: parsed.activity || inferred.activity,
+      cue: parsed.cue || inferred.cue || parsed.motion || inferred.motion,
+      intensity: inferred.intensity,
+      speaking: latest.isError ? false : Boolean(inferred.speaking ?? nextMessage),
       motion: parsed.motion || inferred.motion,
     });
+    await persistControl(resolveControlPatchFromDirectives(parsed));
     scheduleSpeechSettle(nextMessage);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -744,6 +1250,10 @@ const handler = async (event: {
         message: "",
         source: "gateway",
         emotion: "calm",
+        activity: "idle",
+        cue: "idle",
+        intensity: 0.12,
+        speaking: false,
         motion: "idle_soft",
       });
       return;
@@ -758,6 +1268,10 @@ const handler = async (event: {
         message: "",
         source: channelId,
         emotion: "think",
+        activity: "thinking",
+        cue: "think",
+        intensity: 0.45,
+        speaking: false,
         motion: "think",
       });
       return;
@@ -778,8 +1292,13 @@ const handler = async (event: {
         message: nextMessage,
         source: channelId,
         emotion: parsed.emotion || inferred.emotion,
+        activity: parsed.activity || inferred.activity,
+        cue: parsed.cue || inferred.cue || parsed.motion || inferred.motion,
+        intensity: inferred.intensity,
+        speaking: success ? true : false,
         motion: parsed.motion || inferred.motion,
       });
+      await persistControl(resolveControlPatchFromDirectives(parsed));
       scheduleSpeechSettle(nextMessage);
       return;
     }
@@ -793,6 +1312,10 @@ const handler = async (event: {
         message: "",
         source: commandSource,
         emotion: "calm",
+        activity: "idle",
+        cue: "calm",
+        intensity: 0.1,
+        speaking: false,
         motion: "calm",
       });
     }
@@ -803,4 +1326,3 @@ const handler = async (event: {
 };
 
 export default handler;
-

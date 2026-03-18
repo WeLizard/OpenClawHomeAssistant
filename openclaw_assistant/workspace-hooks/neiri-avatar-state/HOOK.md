@@ -7,5 +7,12 @@ metadata:
 
 # Neiri Avatar State
 
-Writes `/config/www/live2d/neiri-state.json` so the Home Assistant avatar can react to
-OpenClaw events without changing OpenClaw core.
+Writes the assistant speech-state bridge for the Home Assistant avatar and `Kiosk Scene`
+runtime without changing OpenClaw core.
+
+Current responsibilities:
+- mirror assistant runtime state to `/config/www/live2d/neiri-state.json`
+- mirror scene control to `/config/www/live2d/neiri-control.json`
+- publish the same state/control into Home Assistant helper entities when configured
+- strip inline directives such as `[emotion:...]`, `[cue:...]`, `[page:...]`, `[preset:...]`
+  from visible speech while still applying them to the scene/avatar contract
