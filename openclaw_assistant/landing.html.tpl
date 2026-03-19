@@ -21,6 +21,7 @@
     .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0}
     .status-item{padding:10px 14px;border-radius:10px;background:#0d1117;border:1px solid #1f2937;font-size:14px;display:flex;align-items:center;gap:8px}
     .status-item .icon{font-size:18px;flex-shrink:0}
+    .status-item small{display:block;color:#9ca3af;font-size:12px;line-height:1.4}
     .banner{padding:12px 16px;border-radius:10px;margin:10px 0;font-size:14px;line-height:1.5}
     .banner.info{background:#1e3a5f;border:1px solid #2563eb}
     .banner.warn{background:#422006;border:1px solid #d97706}
@@ -62,6 +63,10 @@
         <span class="icon">📡</span>
         <span>Access mode: <b>__ACCESS_MODE__</b></span>
       </div>
+      <div class="status-item" id="statusRuntime">
+        <span class="icon">🧩</span>
+        <span>Runtime: <b>__RUNTIME_MODE_LABEL__</b><small>__RUNTIME_DETAIL__</small></span>
+      </div>
       <div class="status-item" id="statusDisk">
         <span class="icon" id="diskIcon">💾</span>
         <span id="diskText">Disk: __DISK_USED__ / __DISK_TOTAL__ (__DISK_PCT__) — __DISK_AVAIL__ free</span>
@@ -78,6 +83,10 @@
     <div class="banner info">
       <b>Scene split:</b> Scene hosting and scene editing now live in the separate <b>Kiosk Scene</b> add-on.
       Keep using this add-on for Gateway, terminal, hooks and HA-side control-plane tasks.
+    </div>
+
+    <div class="banner warn __PACKAGE_WARNING_CLASS__">
+      <b>Package mode notice:</b> __PACKAGE_WARNING__
     </div>
 
     <!-- ==================== MIGRATION BANNER ==================== -->

@@ -163,6 +163,10 @@ LOCAL_BIN_DIR="/config/bin"
 OPENCLAW_SOURCE_DIR="/config/openclaw-src"
 IMAGE_WORKSPACE_HOOKS_DIR="/opt/openclaw-assistant/workspace-hooks"
 PERSISTENT_WORKSPACE_HOOKS_DIR="${OPENCLAW_WORKSPACE_DIR}/hooks"
+RUNTIME_SOURCE_REPO_URL="${OPENCLAW_REPO_URL}"
+RUNTIME_SOURCE_BRANCH="${OPENCLAW_BRANCH:-main}"
+RUNTIME_SOURCE_HEAD=""
+RUNTIME_PACKAGE_VERSION=""
 
 mkdir -p /config/.openclaw /config/.openclaw/identity /config/clawd /config/keys /config/secrets "$LOCAL_BIN_DIR"
 mkdir -p "$PERSISTENT_WORKSPACE_HOOKS_DIR"
@@ -599,6 +603,10 @@ configure_openclaw_source_mode() {
     echo "INFO: OpenClaw source already built at ${target_head}; skipping rebuild"
   fi
 
+  RUNTIME_SOURCE_REPO_URL="${OPENCLAW_REPO_URL}"
+  RUNTIME_SOURCE_BRANCH="${target_branch}"
+  RUNTIME_SOURCE_HEAD="${target_head}"
+
   ensure_openclaw_wrapper
   sync_source_skills
   return 0
@@ -662,6 +670,13 @@ fi
 if ! command -v openclaw >/dev/null 2>&1; then
   echo "ERROR: openclaw is not installed."
   exit 1
+fi
+
+if [ "$INSTALL_MODE" = "source" ]; then
+  echo "INFO: Active OpenClaw runtime source: ${RUNTIME_SOURCE_REPO_URL}#${RUNTIME_SOURCE_BRANCH} @ ${RUNTIME_SOURCE_HEAD:-unknown}"
+else
+  RUNTIME_PACKAGE_VERSION="$(openclaw --version 2>/dev/null | awk 'NR==1{print; exit}' | tr -d '\r' || true)"
+  echo "INFO: Active OpenClaw runtime package: ${RUNTIME_PACKAGE_VERSION:-unknown}"
 fi
 
 # Bootstrap minimal OpenClaw config ONLY if missing.
@@ -1167,6 +1182,9 @@ GW_PUBLIC_URL="$GW_PUBLIC_URL" GW_TOKEN="$GW_TOKEN" TERMINAL_PORT="$TERMINAL_POR
   ENABLE_HTTPS_PROXY="$ENABLE_HTTPS_PROXY" HTTPS_PROXY_PORT="$GATEWAY_PORT" \
   GATEWAY_INTERNAL_PORT="$GATEWAY_INTERNAL_PORT" ACCESS_MODE="$ACCESS_MODE" \
   DISK_TOTAL="$DISK_TOTAL" DISK_USED="$DISK_USED" DISK_AVAIL="$DISK_AVAIL" DISK_PCT="$DISK_PCT" \
+  RUNTIME_INSTALL_MODE="$INSTALL_MODE" RUNTIME_SOURCE_REPO_URL="$RUNTIME_SOURCE_REPO_URL" \
+  RUNTIME_SOURCE_BRANCH="$RUNTIME_SOURCE_BRANCH" RUNTIME_SOURCE_HEAD="$RUNTIME_SOURCE_HEAD" \
+  RUNTIME_PACKAGE_VERSION="$RUNTIME_PACKAGE_VERSION" \
   NGINX_LOG_LEVEL="$NGINX_LOG_LEVEL" \
   python3 /render_nginx.py
 

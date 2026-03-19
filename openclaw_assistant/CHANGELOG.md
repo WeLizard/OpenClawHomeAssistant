@@ -58,7 +58,6 @@ All notable changes to the OpenClaw Assistant Home Assistant Add-on will be docu
 
 ### Translations
 - Added `controlui_disable_device_auth` labels/descriptions to: `en`, `bg`, `de`, `es`, `pl`, `pt-BR`.
-
 ## [0.5.56-welizard.21] - 2026-03-08
 
 ### Changed
