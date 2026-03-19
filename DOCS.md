@@ -287,6 +287,7 @@ All options are set via **Settings → Apps/Add-ons → OpenClaw Assistant → C
 | `gateway_auth_mode` | `token` / `trusted-proxy` | `token` | Gateway auth mode. Use `trusted-proxy` when terminating HTTPS in a reverse proxy and forwarding trusted auth headers. |
 | `gateway_trusted_proxies` | string | _(empty)_ | Comma-separated trusted proxy IP/CIDR list used with `gateway_auth_mode: trusted-proxy`. |
 | `gateway_additional_allowed_origins` | string | _(empty)_ | Comma-separated additional origins merged into `gateway.controlUi.allowedOrigins` in `lan_https` mode (example: `https://ha.example.com:8443,capacitor://localhost`). |
+| `controlui_disable_device_auth` | bool | `true` | Controls `gateway.controlUi.dangerouslyDisableDeviceAuth` in `lan_https` mode. **ON (recommended):** skip per-device pairing approval, avoid error 1008 on LAN HTTPS, token auth still required. **OFF:** enforce per-device pairing prompts (stricter, but more friction). |
 | `force_ipv4_dns` | bool | `true` | Force IPv4-first DNS ordering for Node network calls. **Recommended ON** — most HAOS VMs lack IPv6 egress, causing `web_fetch` and Telegram timeouts. Set to `false` only if your network has working IPv6. |
 | `gateway_env_vars` | list of `{name, value}` | `[]` | Environment variables exported to the gateway process at startup. UI format: list entries with `name` and `value` (example: `name=OPENAI_API_KEY`, `value=sk-...`). Limits: max 50 vars, key length 255, value length 10000. Reserved runtime keys are blocked (for example `PATH`, `HOME`, `NODE_OPTIONS`, `NODE_PATH`, `OPENCLAW_*`, proxy vars). Legacy string/object formats are still accepted for backward compatibility. |
 | `nginx_log_level` | `full` / `minimal` | `minimal` | Nginx access log verbosity. `minimal` suppresses repetitive Home Assistant health-check and polling requests (`GET /`, `GET /v1/models`). `full` logs everything. |
@@ -324,8 +325,7 @@ To provide the SSH key: place the private key file in the add-on config director
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `clean_session_locks_on_start` | bool | `true` | Remove stale session lock files on startup (safe — only removes locks when gateway isn't running) |
-| `clean_session_locks_on_exit` | bool | `true` | Remove session lock files on clean shutdown |
-
+| `clean_session_locks_on_exit` | bool | `true` | Remove session lock files on clean shutdown || `auto_configure_mcp` | bool | `false` | Auto-register Home Assistant as an MCP server on startup (requires `homeassistant_token`) |
 ---
 
 ## 6. Use Case Guides
@@ -490,6 +490,71 @@ You can now use Assist (voice or text) and OpenClaw will handle conversations, c
 ### 6d. Browser Automation (Chromium)
 
 The add-on includes **Chromium** for browser-based automation tasks. OpenClaw can use it for web scraping, form filling, website testing, and other browser automation skills.
+
+### 6d-mcp. MCP Integration (Home Assistant Control)
+
+The **Model Context Protocol (MCP)** lets OpenClaw communicate directly with Home Assistant — reading entity states, calling services, creating automations, and more. This is the recommended way to give OpenClaw full control over your smart home.
+
+#### Automatic setup (recommended)
+
+1. Create a **long-lived access token** in Home Assistant:
+   - Go to your HA profile page (click your user avatar at the bottom of the sidebar)
+   - Scroll to **Long-Lived Access Tokens** → **Create Token**
+   - Give it a name (e.g. "OpenClaw") and copy the token
+2. Paste the token into the add-on option **Home Assistant Token** (`homeassistant_token`) in **Settings → Add-ons → OpenClaw Assistant → Configuration**
+3. Set **Auto-Configure MCP for Home Assistant** (`auto_configure_mcp`) to **ON**
+4. Restart the add-on
+
+The add-on will automatically register Home Assistant as an MCP server named `HA` using `mcporter`. It auto-detects the HA API URL (supervisor proxy when available, otherwise `localhost:8123`). Check the logs for:
+```
+INFO: MCP server 'HA' registered — OpenClaw can now control Home Assistant
+```
+
+On subsequent restarts, the configuration is skipped if the token hasn’t changed.
+
+#### Manual setup
+
+If you prefer to configure MCP manually (or `auto_configure_mcp` is off), run this in the add-on terminal:
+
+```sh
+mcporter config add HA "http://localhost:8123/api/mcp" \
+  --header "Authorization=Bearer YOUR_LONG_LIVED_TOKEN" \
+  --scope home
+```
+
+Replace `YOUR_LONG_LIVED_TOKEN` with your HA long-lived access token.
+
+#### Verifying MCP works
+
+After setup, ask OpenClaw something like:
+- _"Turn off the living room lights"_
+- _"What’s the temperature of the bedroom sensor?"_
+- _"List all entities in the kitchen"_
+
+If OpenClaw can execute HA actions, MCP is working.
+
+#### Refreshing HA context after upgrades
+
+If OpenClaw has stale or missing Home Assistant data after an upgrade, run:
+
+```sh
+mcporter call home-assistant.GetLiveContext
+```
+
+This refreshes the entity/service metadata that OpenClaw uses.
+
+#### Model requirements
+
+MCP setup requires an AI model that understands tool/skill invocation. Budget models (e.g. Gemini 2.5 Flash) may struggle with the initial MCP discovery. For the **first-time setup**, use a capable model (e.g. Gemini 3.1 Pro, Claude Sonnet 4, GPT-4.1). After MCP is configured, you can switch back to a cheaper model for daily use.
+
+#### Troubleshooting MCP
+
+| Symptom | Fix |
+|---|---|
+| `mcporter: command not found` | Run `openclaw onboard` first, then restart the add-on |
+| MCP add fails with auth error | Verify your long-lived token is valid and not expired |
+| OpenClaw doesn’t see HA entities | Run `mcporter call home-assistant.GetLiveContext` to refresh |
+| Model says “what’s MCP?” | Switch to a more capable model for the initial session (see above) |
 
 To enable it, add to `/config/.openclaw/openclaw.json`:
 
@@ -791,7 +856,7 @@ Go to **Settings → Add-ons → OpenClaw Assistant → Log** tab. Logs show sta
 
 **Cause**: OpenClaw v2026.2.21+ requires new devices to complete a pairing handshake before the Control UI WebSocket is accepted. Loopback connections are auto-approved (v2026.2.22 further improves this with loopback scope-upgrade auto-approval), but LAN connections (including those through the HTTPS proxy) require explicit approval.
 
-**Fix**: In **v0.5.50+** the add-on automatically sets `gateway.controlUi.dangerouslyDisableDeviceAuth: true` on startup when using `lan_https` mode. This bypasses per-device pairing — token authentication is still enforced.
+**Fix**: In **v0.5.50+** the add-on configures `gateway.controlUi.dangerouslyDisableDeviceAuth` in `lan_https` mode. By default it is enabled (`controlui_disable_device_auth: true`) to bypass per-device pairing while still enforcing token auth. If you prefer stricter behavior, set `controlui_disable_device_auth: false` and approve new devices manually.
 
 > **v2026.2.22 note:** The gateway now logs a security warning on startup when this flag is active. The warning is expected and harmless — run `openclaw security audit` for details.
 
