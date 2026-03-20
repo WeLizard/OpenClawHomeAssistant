@@ -484,8 +484,9 @@ fi
 
 
 # ------------------------------------------------------------------------------
-# OpenClaw config is managed by OpenClaw itself (onboarding / configure).
-# This add-on intentionally does NOT create/patch /config/.openclaw/openclaw.json.
+# OpenClaw config is primarily managed by OpenClaw itself (onboarding / configure).
+# This add-on only bootstraps a minimal config when missing and applies safe merge
+# updates for gateway/controlUi settings plus Neiri failover defaults.
 # ------------------------------------------------------------------------------
 
 # Convenience info for later (router SSH access path & HA token file)
@@ -882,6 +883,16 @@ PY
 
   python3 "$HELPER_PATH" set-control-ui-origins "$ALLOWED_ORIGINS" "$GATEWAY_ADDITIONAL_ALLOWED_ORIGINS" "$CONTROLUI_DISABLE_DEVICE_AUTH" || \
     echo "WARN: Could not set controlUi settings — gateway may reject the Control UI"
+fi
+
+# ------------------------------------------------------------------------------
+# Ensure Neiri text/image failover defaults exist without overwriting user
+# overrides. This keeps qwen-portal as primary while arming cliproxy as the
+# built-in fallback path for auth/rate-limit outages.
+# ------------------------------------------------------------------------------
+if [ -f "$HELPER_PATH" ] && [ -f "$OPENCLAW_CONFIG_PATH" ]; then
+  python3 "$HELPER_PATH" ensure-model-failover-defaults || \
+    echo "WARN: Could not ensure Neiri failover defaults"
 fi
 
 # ------------------------------------------------------------------------------

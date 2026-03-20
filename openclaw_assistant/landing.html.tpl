@@ -67,6 +67,18 @@
         <span class="icon">🧩</span>
         <span>Runtime: <b>__RUNTIME_MODE_LABEL__</b><small>__RUNTIME_DETAIL__</small></span>
       </div>
+      <div class="status-item" id="statusModelRouting">
+        <span class="icon">🧠</span>
+        <span>Text model: <b>__MODEL_PRIMARY__</b><small>Fallbacks: __MODEL_FALLBACKS__</small></span>
+      </div>
+      <div class="status-item" id="statusImageRouting">
+        <span class="icon">🖼️</span>
+        <span>Image model: <b>__IMAGE_MODEL__</b><small>Fallbacks: __IMAGE_FALLBACKS__</small></span>
+      </div>
+      <div class="status-item" id="statusModelHealth">
+        <span class="icon">__MODEL_HEALTH_ICON__</span>
+        <span>Model health: <b>__MODEL_HEALTH_LABEL__</b><small>__MODEL_HEALTH_DETAIL__</small></span>
+      </div>
       <div class="status-item" id="statusDisk">
         <span class="icon" id="diskIcon">💾</span>
         <span id="diskText">Disk: __DISK_USED__ / __DISK_TOTAL__ (__DISK_PCT__) — __DISK_AVAIL__ free</span>

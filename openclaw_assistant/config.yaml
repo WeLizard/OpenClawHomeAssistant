@@ -1,5 +1,5 @@
 name: OpenClaw Assistant (WeLizard Fork)
-version: "0.5.63-welizard.23"
+version: "0.5.63-welizard.24"
 slug: openclaw_assistant
 description: Run the WeLizard OpenClaw fork as a Home Assistant add-on.
 url: https://github.com/WeLizard/OpenClawHomeAssistant

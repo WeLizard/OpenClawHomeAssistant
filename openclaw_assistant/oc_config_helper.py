@@ -6,11 +6,18 @@ Safely reads/writes openclaw.json without corrupting it.
 
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
 CONFIG_PATH = Path(os.environ.get("OPENCLAW_CONFIG_PATH", "/config/.openclaw/openclaw.json"))
+NEIRI_TEXT_PRIMARY = "qwen-portal/coder-model"
+NEIRI_IMAGE_PRIMARY = "qwen-portal/vision-model"
+NEIRI_FAILOVER_MODEL = "cliproxy/gpt-5.4"
+NEIRI_REQUIRED_MODELS = [
+    NEIRI_TEXT_PRIMARY,
+    NEIRI_IMAGE_PRIMARY,
+    NEIRI_FAILOVER_MODEL,
+]
 
 
 
@@ -55,6 +62,154 @@ def set_gateway_setting(key, value):
     
     cfg["gateway"][key] = value
     return write_config(cfg)
+
+
+def _ensure_dict(parent, key):
+    value = parent.get(key)
+    if not isinstance(value, dict):
+        value = {}
+        parent[key] = value
+    return value
+
+
+def _resolve_model_primary(value):
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        primary = value.get("primary")
+        if isinstance(primary, str):
+            return primary.strip()
+    return ""
+
+
+def _resolve_model_fallbacks(value):
+    if isinstance(value, dict):
+        raw = value.get("fallbacks")
+        if isinstance(raw, list):
+            return [entry.strip() for entry in raw if isinstance(entry, str) and entry.strip()]
+    return []
+
+
+def _provider_exists(cfg, provider_id):
+    providers = cfg.get("models", {}).get("providers", {})
+    if provider_id in providers:
+        return True
+    defaults = cfg.get("agents", {}).get("defaults", {})
+    models = defaults.get("models", {})
+    if isinstance(models, dict):
+        for ref in models.keys():
+            if isinstance(ref, str) and ref.strip().startswith(f"{provider_id}/"):
+                return True
+    return False
+
+
+def ensure_model_failover_defaults():
+    """
+    Ensure built-in Neiri failover defaults exist without overwriting user overrides.
+
+    This only manages the known qwen-portal -> cliproxy fallback path:
+      - text: qwen-portal/coder-model -> cliproxy/gpt-5.4
+      - image: qwen-portal/vision-model -> cliproxy/gpt-5.4
+    """
+    cfg = read_config()
+    if cfg is None:
+        cfg = {}
+
+    agents = _ensure_dict(cfg, "agents")
+    defaults = _ensure_dict(agents, "defaults")
+    changes = []
+
+    current_model = defaults.get("model")
+    current_primary = _resolve_model_primary(current_model)
+    current_fallbacks = _resolve_model_fallbacks(current_model)
+    current_image_model = defaults.get("imageModel")
+    current_image_primary = _resolve_model_primary(current_image_model)
+    current_image_fallbacks = _resolve_model_fallbacks(current_image_model)
+    current_models = defaults.get("models")
+    managed_allowlist = isinstance(current_models, dict) and any(
+        ref in current_models for ref in NEIRI_REQUIRED_MODELS
+    )
+
+    if (
+        current_primary != NEIRI_TEXT_PRIMARY
+        and current_image_primary != NEIRI_IMAGE_PRIMARY
+        and not managed_allowlist
+    ):
+        print(
+            "INFO: Model failover defaults skipped; current profile is not the managed Neiri qwen-portal setup"
+        )
+        return True
+
+    cliproxy_available = _provider_exists(cfg, "cliproxy")
+    qwen_available = _provider_exists(cfg, "qwen-portal")
+    if not cliproxy_available or not qwen_available:
+        missing = []
+        if not qwen_available:
+            missing.append("qwen-portal")
+        if not cliproxy_available:
+            missing.append("cliproxy")
+        print(
+            "INFO: Model failover defaults skipped; missing provider config for "
+            + ", ".join(missing)
+        )
+        return True
+
+    if current_primary == NEIRI_TEXT_PRIMARY and not current_fallbacks:
+        defaults["model"] = {
+            "primary": NEIRI_TEXT_PRIMARY,
+            "fallbacks": [NEIRI_FAILOVER_MODEL],
+        }
+        changes.append(
+            f"agents.defaults.model: set fallbacks -> [{NEIRI_FAILOVER_MODEL}]"
+        )
+
+    if not current_image_model and current_primary == NEIRI_TEXT_PRIMARY:
+        defaults["imageModel"] = {
+            "primary": NEIRI_IMAGE_PRIMARY,
+            "fallbacks": [NEIRI_FAILOVER_MODEL],
+        }
+        changes.append(
+            "agents.defaults.imageModel: configured qwen-portal/vision-model with cliproxy fallback"
+        )
+    elif current_image_primary == NEIRI_IMAGE_PRIMARY and not current_image_fallbacks:
+        defaults["imageModel"] = {
+            "primary": NEIRI_IMAGE_PRIMARY,
+            "fallbacks": [NEIRI_FAILOVER_MODEL],
+        }
+        changes.append(
+            f"agents.defaults.imageModel: set fallbacks -> [{NEIRI_FAILOVER_MODEL}]"
+        )
+
+    if current_models is None:
+        defaults["models"] = {ref: {} for ref in NEIRI_REQUIRED_MODELS}
+        changes.append(
+            "agents.defaults.models: seeded Neiri allowlist (qwen text/image + cliproxy fallback)"
+        )
+    elif isinstance(current_models, dict):
+        added = []
+        for ref in NEIRI_REQUIRED_MODELS:
+            if ref not in current_models:
+                current_models[ref] = {}
+                added.append(ref)
+        if added:
+            changes.append(
+                "agents.defaults.models: added "
+                + ", ".join(added)
+            )
+    else:
+        print(
+            "WARN: agents.defaults.models is not an object; skipping allowlist merge for failover defaults"
+        )
+
+    if changes:
+        if write_config(cfg):
+            print(f"INFO: Updated model failover defaults: {', '.join(changes)}")
+            return True
+        print("ERROR: Failed to write model failover defaults")
+        return False
+
+    print("INFO: Model failover defaults already configured or user-managed")
+    return True
 
 
 def apply_gateway_settings(mode: str, remote_url: str, bind_mode: str, port: int, enable_openai_api: bool, auth_mode: str, trusted_proxies_csv: str):
@@ -298,6 +453,13 @@ def main():
         if len(sys.argv) == 5:
             disable_device_auth = sys.argv[4].strip().lower() == "true"
         success = set_control_ui_origins(origins_csv, additional_origins_csv, disable_device_auth)
+        sys.exit(0 if success else 1)
+
+    elif cmd == "ensure-model-failover-defaults":
+        if len(sys.argv) != 2:
+            print("Usage: oc_config_helper.py ensure-model-failover-defaults")
+            sys.exit(1)
+        success = ensure_model_failover_defaults()
         sys.exit(0 if success else 1)
 
     elif cmd == "set":

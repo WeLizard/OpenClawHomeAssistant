@@ -2,6 +2,18 @@
 
 All notable changes to the OpenClaw Assistant Home Assistant Add-on will be documented in this file.
 
+## [0.5.63-welizard.24] - 2026-03-20
+
+### Added
+- `ensure-model-failover-defaults` helper: automatically sets text and image
+  model failover routes (`qwen-portal/coder-model` → `cliproxy/gpt-5.4`,
+  `qwen-portal/vision-model` → `cliproxy/gpt-5.4`) for Neiri-managed qwen
+  profiles on startup. Does not overwrite user-defined non-empty fallbacks and
+  does not touch non-Neiri/non-qwen profiles.
+- Health summary on the landing page sourced from `openclaw models status --json`
+  with fallback to reading `openclaw.json`, showing active text/image model
+  and fallback chain status.
+
 ## [0.5.63-welizard.23] - 2026-03-19
 
 ### Changed
